@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Facebook Shop All-in-One | Lavos Bakery Social Market</title>
+    <!-- Bootstrap 5 + Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background: #f0f2f5; }
+        /* Facebook style header */
+        .fb-header {
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 12px 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        .logo { font-size: 1.8rem; font-weight: 700; background: linear-gradient(135deg, #1877f2, #0d5a9e); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .cart-badge { position: absolute; top: -5px; right: -8px; background: #e41e3f; color: white; border-radius: 50%; font-size: 0.7rem; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; }
+        /* Product card */
+        .product-card {
+            background: white;
+            border-radius: 16px;
+            transition: 0.2s;
+            border: 1px solid #e4e6eb;
+            overflow: hidden;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .product-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
+        .product-img { height: 180px; background: #f7f9fc; display: flex; align-items: center; justify-content: center; font-size: 3.5rem; }
+        .like-btn, .comment-btn, .share-btn { cursor: pointer; transition: 0.1s; }
+        .like-btn.liked { color: #1877f2; font-weight: bold; }
+        /* Cart drawer */
+        .cart-drawer {
+            position: fixed;
+            top: 0;
+            right: -400px;
+            width: 380px;
+            height: 100vh;
+            background: white;
+            box-shadow: -2px 0 15px rgba(0,0,0,0.2);
+            transition: 0.3s;
+            z-index: 1050;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+        .cart-drawer.open { right: 0; }
+        .cart-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1040;
+            display: none;
+        }
+        .cart-overlay.show { display: block; }
+        /* Feed posts */
+        .feed-post {
+            background: white;
+            border-radius: 16px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 1px solid #e4e6eb;
+        }
+        .order-card { border-left: 4px solid #1877f2; background: white; border-radius: 12px; padding: 15px; margin-bottom: 12px; }
+        .btn-fb { background: #1877f2; border: none; border-radius: 40px; padding: 8px 20px; color: white; font-weight: 600; }
+        .btn-fb:hover { background: #0d5a9e; }
+        .tab-active { font-weight: 700; border-bottom: 3px solid #1877f2; color: #1877f2; }
+        .nav-link-custom { cursor: pointer; color: #65676b; font-weight: 500; padding: 8px 16px; border-radius: 40px; }
+        .nav-link-custom:hover { background: #e4e6eb; }
+        @media (max-width: 768px) { .cart-drawer { width: 100%; right: -100%; } }
+    </style>
+</head>
+<body>
+
+<!-- Facebook Header -->
+<div class="fb-header">
+    <div class="container d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-facebook fs-2 text-primary"></i>
+            <span class="logo fw-bold">LavosMarket</span>
+        </div>
+        <div class="d-flex gap-3 align-items-center">
+            <i class="bi bi-person-circle fs-4 text-secondary" role="button" data-bs-toggle="modal" data-bs-target="#profileModal"></i>
+            <div class="position-relative" id="cartIconWrapper">
+                <i class="bi bi-cart3 fs-4 text-secondary" role="button" id="openCartBtn"></i>
+                <span id="cartCountBadge" class="cart-badge">0</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cart Drawer -->
+<div id="cartOverlay" class="cart-overlay"></div>
+<div id="cartDrawer" class="cart-drawer">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5><i class="bi bi-bag-check"></i> Your Cart</h5>
+        <i class="bi bi-x-lg fs-5" role="button" id="closeCartBtn"></i>
+    </div>
+    <div id="cartItemsList" class="flex-grow-1 overflow-auto">Loading...</div>
+    <hr>
+    <div id="cartSummary" class="mb-2"></div>
+    <button id="proceedCheckoutBtn" class="btn btn-fb w-100">Proceed to Checkout</button>
+</div>
+
+<!-- Main Content Tabs -->
+<div class="container mt-4">
+    <ul class="nav nav-pills justify-content-center gap-2 mb-4" id="mainTab" role="tablist">
+        <li class="nav-item" role="presentation"><button class="nav-link-custom active" data-tab="shop">🛍️ Shop</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link-custom" data-tab="feed">📱 Social Feed</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link-custom" data-tab="orders">📦 My Orders</button></li>
+    </ul>
+
+    <!-- Shop Tab -->
+    <div id="shopTab" class="tab-content-active">
+        <div class="row g-3" id="productsGrid"></div>
+    </div>
+
+    <!-- Social Feed Tab -->
+    <div id="feedTab" style="display: none;">
+        <div class="mb-3">
+            <textarea id="newPostContent" class="form-control" rows="2" placeholder="What's on your mind? Share a product or update..."></textarea>
+            <button id="publishPostBtn" class="btn btn-fb mt-2">📢 Post to Feed</button>
+        </div>
+        <div id="feedPostsContainer"></div>
+    </div>
+
+    <!-- Orders Tab -->
+    <div id="ordersTab" style="display: none;">
+        <div id="ordersListContainer"></div>
+    </div>
+</div>
+
+<!-- Product Quick View Modal (comments & like inside) -->
+<div class="modal fade" id="productModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title" id="modalProductName"></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <p><strong>Price:</strong> $<span id="modalProductPrice"></span></p>
+                <p><strong>Description:</strong> Freshly baked premium cake.</p>
+                <hr><h6>Comments</h6><div id="modalCommentsList"></div>
+                <div class="input-group mt-2"><input type="text" id="newCommentInput" class="form-control" placeholder="Write a comment..."><button id="addCommentBtn" class="btn btn-outline-primary">Post</button></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Profile Modal -->
+<div class="modal fade" id="profileModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5>User Profile</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><p><strong>Name:</strong> Cake Lover</p><p><strong>Email:</strong> shopper@lavos.com</p><p><i class="bi bi-database"></i> Data saved locally</p></div></div></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // ---------- DATA MODELS (localStorage) ----------
+    let products = [
+        { id: 101, name: "🍰 Royal Wedding Cake", price: 299.99, likes: 24, comments: [{ user: "Emma", text: "Gorgeous!" }], stock: 5 },
+        { id: 102, name: "🌈 Rainbow Birthday", price: 89.99, likes: 56, comments: [{ user: "Liam", text: "Perfect for kids" }], stock: 12 },
+        { id: 103, name: "✨ Gold Celebration", price: 159.99, likes: 89, comments: [{ user: "Sophia", text: "Elegant" }], stock: 7 },
+        { id: 104, name: "🍫 Chocolate Fudge", price: 79.99, likes: 112, comments: [{ user: "Noah", text: "So rich!" }], stock: 20 },
+        { id: 105, name: "🥭 Mango Mousse", price: 69.99, likes: 33, comments: [], stock: 9 }
+    ];
+    let cart = [];
+    let orders = [];
+    let feedPosts = []; // { id, author, content, likes, comments, timestamp, productRef? }
+
+    // Load from localStorage
+    function loadData() {
+        const storedProducts = localStorage.getItem("fb_products");
+        if(storedProducts) products = JSON.parse(storedProducts);
+        const storedCart = localStorage.getItem("fb_cart");
+        if(storedCart) cart = JSON.parse(storedCart);
+        const storedOrders = localStorage.getItem("fb_orders");
+        if(storedOrders) orders = JSON.parse(storedOrders);
+        const storedFeed = localStorage.getItem("fb_feed");
+        if(storedFeed) feedPosts = JSON.parse(storedFeed);
+        else {
+            // Default feed posts
+            feedPosts = [
+                { id: Date.now()+1, author: "Lavos Bakery", content: "🎉 New Wedding Cake collection! Shop now.", likes: 12, comments: [], timestamp: new Date().toISOString() },
+                { id: Date.now()+2, author: "Happy Customer", content: "Just bought the Rainbow cake – amazing!", likes: 5, comments: [], timestamp: new Date().toISOString() }
+            ];
+        }
+        updateBadge();
+    }
+    function saveAll() {
+        localStorage.setItem("fb_products", JSON.stringify(products));
+        localStorage.setItem("fb_cart", JSON.stringify(cart));
+        localStorage.setItem("fb_orders", JSON.stringify(orders));
+        localStorage.setItem("fb_feed", JSON.stringify(feedPosts));
+    }
+
+    function updateBadge() {
+        let total = cart.reduce((sum,i)=>sum+i.qty,0);
+        document.getElementById("cartCountBadge").innerText = total;
+    }
+
+    // Render Shop
+    function renderShop() {
+        const container = document.getElementById("productsGrid");
+        if(!container) return;
+        container.innerHTML = products.map(p => `
+            <div class="col-md-4 col-lg-3">
+                <div class="product-card p-2">
+                    <div class="product-img">${p.name.charAt(0)}🍰</div>
+                    <div class="p-2">
+                        <h6>${p.name}</h6>
+                        <div class="d-flex justify-content-between">
+                            <span class="fw-bold text-primary">$${p.price}</span>
+                            <span><i class="bi bi-box-seam"></i> ${p.stock}</span>
+                        </div>
+                        <div class="d-flex justify-content-between mt-2">
+                            <span class="like-btn ${p.likedByUser ? 'liked' : ''}" data-id="${p.id}"><i class="bi ${p.likedByUser ? 'bi-hand-thumbs-up-fill' : 'bi-hand-thumbs-up'}"></i> ${p.likes}</span>
+                            <span class="comment-btn" data-id="${p.id}" data-bs-toggle="modal" data-bs-target="#productModal"><i class="bi bi-chat"></i> ${p.comments.length}</span>
+                            <span class="share-btn" data-id="${p.id}" data-name="${p.name}"><i class="bi bi-share"></i> Share</span>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary w-100 mt-2 add-cart-btn" data-id="${p.id}">Add to Cart</button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+        // attach events after render
+        document.querySelectorAll('.like-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = parseInt(btn.dataset.id);
+                const product = products.find(p => p.id === id);
+                if(product) {
+                    if(!product.likedByUser) {
+                        product.likes++;
+                        product.likedByUser = true;
+                    } else {
+                        product.likes--;
+                        product.likedByUser = false;
+                    }
+                    saveAll();
+                    renderShop();
+                }
+            });
+        });
+        document.querySelectorAll('.comment-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = parseInt(btn.dataset.id);
+                const product = products.find(p => p.id === id);
+                if(product) {
+                    document.getElementById("modalProductName").innerText = product.name;
+                    document.getElementById("modalProductPrice").innerText = product.price;
+                    renderCommentsModal(product);
+                    window.currentProductId = id;
+                }
+            });
+        });
+        document.querySelectorAll('.share-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const name = btn.dataset.name;
+                const newPost = {
+                    id: Date.now(),
+                    author: "You",
+                    content: `Just shared ${name} from Lavos Marketplace! 🛍️ Check it out.`,
+                    likes: 0,
+                    comments: [],
+                    timestamp: new Date().toISOString()
+                };
+                feedPosts.unshift(newPost);
+                saveAll();
+                alert("Shared to your feed!");
+                if(document.querySelector('[data-tab="feed"]')) document.querySelector('[data-tab="feed"]').click(); // switch to feed
+            });
+        });
+        document.querySelectorAll('.add-cart-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = parseInt(btn.dataset.id);
+                const product = products.find(p => p.id === id);
+                if(product && product.stock > 0) {
+                    const existing = cart.find(i => i.id === id);
+                    if(existing) existing.qty++;
+                    else cart.push({ id: product.id, name: product.name, price: product.price, qty: 1 });
+                    saveAll();
+                    updateBadge();
+                    renderCartSidebar();
+                    alert(`${product.name} added to cart`);
+                } else alert("Out of stock");
+            });
+        });
+    }
+
+    function renderCommentsModal(product) {
+        const container = document.getElementById("modalCommentsList");
+        if(container) {
+            container.innerHTML = product.comments.map(c => `<div><strong>${c.user}</strong>: ${c.text}</div>`).join('') || "<em>No comments yet</em>";
+            const addBtn = document.getElementById("addCommentBtn");
+            const newInput = document.getElementById("newCommentInput");
+            if(addBtn) {
+                addBtn.onclick = () => {
+                    const commentText = newInput.value.trim();
+                    if(commentText) {
+                        product.comments.push({ user: "You", text: commentText });
+                        saveAll();
+                        renderCommentsModal(product);
+                        newInput.value = '';
+                        renderShop(); // refresh counts
+                    }
+                };
+            }
+        }
+    }
+
+    // Cart Drawer
+    function renderCartSidebar() {
+        const container = document.getElementById("cartItemsList");
+        if(!container) return;
+        if(cart.length === 0) {
+            container.innerHTML = "<div class='text-center text-muted'>Your cart is empty</div>";
+            document.getElementById("cartSummary").innerHTML = "";
+            return;
+        }
+        let itemsHtml = cart.map(item => `
+            <div class="d-flex justify-content-between align-items-center mb-2 border-bottom pb-2">
+                <div><strong>${item.name}</strong><br><small>$${item.price} x ${item.qty}</small></div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-secondary cart-qty-minus" data-id="${item.id}">-</button>
+                    <span>${item.qty}</span>
+                    <button class="btn btn-sm btn-outline-secondary cart-qty-plus" data-id="${item.id}">+</button>
+                    <button class="btn btn-sm btn-outline-danger cart-remove" data-id="${item.id}"><i class="bi bi-trash"></i></button>
+                </div>
+            </div>
+        `).join('');
+        container.innerHTML = itemsHtml;
+        let subtotal = cart.reduce((s,i)=>s+(i.price*i.qty),0);
+        let tax = subtotal*0.08;
+        let total = subtotal+tax;
+        document.getElementById("cartSummary").innerHTML = `<div class="d-flex justify-content-between"><span>Subtotal</span><span>$${subtotal.toFixed(2)}</span></div><div class="d-flex justify-content-between"><span>Tax (8%)</span><span>$${tax.toFixed(2)}</span></div><hr><div class="d-flex justify-content-between fw-bold"><span>Total</span><span>$${total.toFixed(2)}</span></div>`;
+        // attach events
+        document.querySelectorAll('.cart-qty-minus').forEach(btn => {
+            btn.onclick = () => { changeQty(parseInt(btn.dataset.id), -1); };
+        });
+        document.querySelectorAll('.cart-qty-plus').forEach(btn => {
+            btn.onclick = () => { changeQty(parseInt(btn.dataset.id), 1); };
+        });
+        document.querySelectorAll('.cart-remove').forEach(btn => {
+            btn.onclick = () => { removeCartItem(parseInt(btn.dataset.id)); };
+        });
+    }
+    function changeQty(id, delta) {
+        let item = cart.find(i => i.id === id);
+        if(item) {
+            let newQty = item.qty + delta;
+            let productStock = products.find(p => p.id === id)?.stock || 0;
+            if(newQty <= 0) removeCartItem(id);
+            else if(newQty <= productStock) { item.qty = newQty; saveAll(); renderCartSidebar(); updateBadge(); }
+            else alert("Not enough stock");
+        }
+    }
+    function removeCartItem(id) { cart = cart.filter(i => i.id !== id); saveAll(); renderCartSidebar(); updateBadge(); }
+
+    // Checkout
+    function proceedCheckout() {
+        if(cart.length === 0) { alert("Cart empty"); return; }
+        const customerName = prompt("Full name for order:", "Valued Customer");
+        const customerEmail = prompt("Email for tracking:", "buyer@example.com");
+        if(!customerName || !customerEmail) return;
+        let totalAmount = cart.reduce((s,i)=>s+(i.price*i.qty),0);
+        totalAmount += totalAmount*0.08;
+        const orderNumber = "FBORD-" + Date.now();
+        const newOrder = {
+            id: Date.now(),
+            orderNumber: orderNumber,
+            customer: customerName,
+            email: customerEmail,
+            items: [...cart],
+            total: totalAmount,
+            status: "Pending",
+            date: new Date().toISOString()
+        };
+        orders.unshift(newOrder);
+        // reduce stock
+        cart.forEach(citem => {
+            let prod = products.find(p => p.id === citem.id);
+            if(prod) prod.stock -= citem.qty;
+        });
+        cart = [];
+        saveAll();
+        updateBadge();
+        renderCartSidebar();
+        alert(`Order ${orderNumber} placed! Total: $${totalAmount.toFixed(2)}. You can view in "My Orders".`);
+        document.getElementById("closeCartBtn").click();
+        document.querySelector('[data-tab="orders"]').click();
+    }
+
+    // Render Orders
+    function renderOrders() {
+        const container = document.getElementById("ordersListContainer");
+        if(!container) return;
+        if(orders.length === 0) { container.innerHTML = "<div class='alert alert-info'>No orders yet.</div>"; return; }
+        container.innerHTML = orders.map(order => `
+            <div class="order-card">
+                <div class="d-flex justify-content-between">
+                    <strong>${order.orderNumber}</strong> <span class="badge bg-primary">${order.status}</span>
+                </div>
+                <small>${new Date(order.date).toLocaleString()}</small>
+                <div>Items: ${order.items.map(i=>`${i.name} x${i.qty}`).join(', ')}</div>
+                <div class="fw-bold">Total: $${order.total.toFixed(2)}</div>
+                <button class="btn btn-sm btn-outline-secondary mt-2" onclick="trackOrder('${order.orderNumber}')">Track Order</button>
+            </div>
+        `).join('');
+    }
+    window.trackOrder = (orderNum) => {
+        let ord = orders.find(o=>o.orderNumber === orderNum);
+        if(ord) alert(`Order ${orderNum}\nStatus: ${ord.status}\nPlaced: ${new Date(ord.date).toLocaleString()}\nTotal: $${ord.total.toFixed(2)}`);
+    };
+
+    // Social Feed Rendering
+    function renderFeed() {
+        const container = document.getElementById("feedPostsContainer");
+        if(!container) return;
+        if(feedPosts.length === 0) container.innerHTML = "<div class='alert alert-secondary'>No posts yet. Be the first to share!</div>";
+        else {
+            container.innerHTML = feedPosts.map(post => `
+                <div class="feed-post">
+                    <div class="d-flex justify-content-between"><strong><i class="bi bi-person-circle"></i> ${post.author}</strong> <small class="text-muted">${new Date(post.timestamp).toLocaleString()}</small></div>
+                    <p class="mt-2">${post.content}</p>
+                    <div>
+                        <span class="feed-like me-3" data-id="${post.id}"><i class="bi ${post.likedByUser ? 'bi-hand-thumbs-up-fill' : 'bi-hand-thumbs-up'}"></i> ${post.likes}</span>
+                        <span class="feed-comment me-3" data-id="${post.id}"><i class="bi bi-chat"></i> ${post.comments.length}</span>
+                    </div>
+                    <div class="comment-section mt-2" style="display:none;" id="commentBox-${post.id}">
+                        <input type="text" class="form-control form-control-sm comment-input" placeholder="Write a comment...">
+                        <button class="btn btn-sm btn-primary mt-1 post-comment-btn" data-id="${post.id}">Post</button>
+                        <div class="existing-comments mt-2">${post.comments.map(c=>`<div><small><strong>${c.user}</strong> ${c.text}</small></div>`).join('')}</div>
+                    </div>
+                </div>
+            `).join('');
+            // attach like & comment events
+            document.querySelectorAll('.feed-like').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    const id = parseInt(el.dataset.id);
+                    const post = feedPosts.find(p=>p.id===id);
+                    if(post) {
+                        if(!post.likedByUser) { post.likes++; post.likedByUser = true; }
+                        else { post.likes--; post.likedByUser = false; }
+                        saveAll();
+                        renderFeed();
+                    }
+                });
+            });
+            document.querySelectorAll('.feed-comment').forEach(el => {
+                el.addEventListener('click', () => {
+                    const id = parseInt(el.dataset.id);
+                    const commentDiv = document.getElementById(`commentBox-${id}`);
+                    if(commentDiv) commentDiv.style.display = commentDiv.style.display === 'none' ? 'block' : 'none';
+                });
+            });
+            document.querySelectorAll('.post-comment-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const postId = parseInt(btn.dataset.id);
+                    const input = btn.parentElement.querySelector('.comment-input');
+                    const text = input.value.trim();
+                    if(text) {
+                        const post = feedPosts.find(p=>p.id===postId);
+                        if(post) {
+                            post.comments.push({ user: "You", text: text });
+                            saveAll();
+                            renderFeed();
+                        }
+                    }
+                });
+            });
+        }
+    }
+
+    // Publish new feed post
+    document.getElementById("publishPostBtn")?.addEventListener('click', () => {
+        const content = document.getElementById("newPostContent").value.trim();
+        if(content) {
+            feedPosts.unshift({
+                id: Date.now(),
+                author: "You",
+                content: content,
+                likes: 0,
+                comments: [],
+                timestamp: new Date().toISOString()
+            });
+            saveAll();
+            document.getElementById("newPostContent").value = '';
+            renderFeed();
+            alert("Post published!");
+        } else alert("Please enter something to share.");
+    });
+
+    // Tab switching
+    const tabs = document.querySelectorAll('[data-tab]');
+    const shopDiv = document.getElementById("shopTab");
+    const feedDiv = document.getElementById("feedTab");
+    const ordersDiv = document.getElementById("ordersTab");
+    function switchTab(tabId) {
+        shopDiv.style.display = tabId === 'shop' ? 'block' : 'none';
+        feedDiv.style.display = tabId === 'feed' ? 'block' : 'none';
+        ordersDiv.style.display = tabId === 'orders' ? 'block' : 'none';
+        if(tabId === 'feed') renderFeed();
+        if(tabId === 'orders') renderOrders();
+        if(tabId === 'shop') renderShop();
+        tabs.forEach(t => { if(t.dataset.tab === tabId) t.classList.add('active'); else t.classList.remove('active'); });
+    }
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+    });
+
+    // Cart drawer controls
+    const drawer = document.getElementById("cartDrawer");
+    const overlay = document.getElementById("cartOverlay");
+    document.getElementById("openCartBtn").onclick = () => { drawer.classList.add("open"); overlay.classList.add("show"); renderCartSidebar(); };
+    document.getElementById("closeCartBtn").onclick = () => { drawer.classList.remove("open"); overlay.classList.remove("show"); };
+    overlay.onclick = () => { drawer.classList.remove("open"); overlay.classList.remove("show"); };
+    document.getElementById("proceedCheckoutBtn").onclick = () => proceedCheckout();
+
+    // init
+    loadData();
+    renderShop();
+    renderCartSidebar();
+    switchTab('shop');
+    // register modal comment product id holder
+    window.currentProductId = null;
+</script>
+</body>
+</html>

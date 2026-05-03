@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Analytics & Reporting | Lavos Bakery</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', system-ui; }
+        body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        .sidebar { background: linear-gradient(180deg, #2c3e50 0%, #1a252f 100%); min-height: 100vh; transition: 0.3s; position: fixed; width: 280px; z-index: 1000; }
+        .sidebar .nav-link { color: #b9c3e6; border-radius: 12px; margin: 6px 12px; padding: 12px 18px; cursor: pointer; }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active { background: #d4a373; color: #1a1e2b; transform: translateX(5px); }
+        .sidebar .nav-link i { margin-right: 10px; }
+        .main-content { margin-left: 280px; transition: 0.3s; }
+        .navbar-custom { background: white; box-shadow: 0 2px 12px rgba(0,0,0,0.05); padding: 15px 25px; border-radius: 0 0 20px 20px; }
+        .stat-card { background: white; border-radius: 28px; border: none; transition: 0.2s; box-shadow: 0 5px 15px rgba(0,0,0,0.05); padding: 20px; text-align: center; }
+        .stat-card:hover { transform: translateY(-4px); }
+        .chart-container { background: white; border-radius: 20px; padding: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.08); margin-bottom: 20px; }
+        canvas { max-height: 350px; width: 100% !important; }
+        .mobile-toggle { display: none; cursor: pointer; font-size: 1.8rem; }
+        @media (max-width: 768px) { .sidebar { left: -280px; } .sidebar.show { left: 0; } .main-content { margin-left: 0; } .mobile-toggle { display: block; } }
+        .back-to-top { position: fixed; bottom: 30px; right: 30px; width: 45px; height: 45px; background: #d4a373; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; visibility: hidden; transition: 0.3s; z-index: 1000; }
+        .back-to-top.show { opacity: 1; visibility: visible; }
+        .anomaly-alert { background: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; margin-bottom: 10px; border-radius: 8px; }
+        .anomaly-alert.spike { border-left-color: #28a745; background: #d4edda; }
+        .anomaly-alert.drop { border-left-color: #dc3545; background: #f8d7da; }
+        .prediction-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+    </style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+    // ========== DATA STORAGE ==========
+    const STORAGE_KEYS = { ORDERS: 'analytics_orders', PRODUCTS: 'analytics_products', CUSTOMERS: 'analytics_customers', SALES_DATA: 'analytics_sales_data' };
+    function initData() {
+        if (!localStorage.getItem(STORAGE_KEYS.SALES_DATA)) {
+            const monthly = [];
+            const now = new Date();
+            for (let i = 11; i >= 0; i--) {
+                const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                const month = date.toLocaleString('default', { month: 'short' });
+                const rev = 5000 + Math.random() * 15000 + (i * 300);
+                monthly.push({ month: `${month} ${date.getFullYear()}`, revenue: Math.round(rev), orders: 30 + Math.floor(Math.random() * 80) });
+            }
+            localStorage.setItem(STORAGE_KEYS.SALES_DATA, JSON.stringify(monthly));
+        }
+        if (!localStorage.getItem(STORAGE_KEYS.PRODUCTS)) {
+            localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify([
+                { id: 1, name: 'Wedding Cake', category: 'wedding', price: 299, sold: 45, revenue: 13455, profit: 8000 },
+                { id: 2, name: 'Birthday Cake', category: 'birthday', price: 89, sold: 128, revenue: 11392, profit: 6000 }
+            ]));
+        }
+        if (!localStorage.getItem(STORAGE_KEYS.CUSTOMERS)) {
+            const customers = [];
+            for (let i = 1; i <= 25; i++) customers.push({ id: i, name: `Customer ${i}`, order_count: Math.floor(Math.random() * 10)+1, total_spent: 50 + Math.random() * 500, last_order: new Date().toISOString() });
+            localStorage.setItem(STORAGE_KEYS.CUSTOMERS, JSON.stringify(customers));
+        }
+        if (!localStorage.getItem(STORAGE_KEYS.ORDERS)) {
+            const orders = [];
+            for (let i = 1; i <= 50; i++) orders.push({ id: i, amount: 20+Math.random()*380, status: ['delivered','pending','shipped'][Math.floor(Math.random()*3)], order_date: new Date(Date.now() - Math.random()*90*86400000).toISOString() });
+            localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
+        }
+    }
+    function formatCurrency(a) { return '$' + parseFloat(a).toFixed(2); }
+    function escapeHtml(s) { if(!s) return ''; return s.replace(/[&<>]/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[m])); }
+    function formatNumber(n) { return n.toLocaleString(); }
+    let currentPage = 'dashboard';
+    function renderLayout(content) { return `<div class="d-flex"><div class="sidebar" id="sidebarMenu"><div class="p-3 pt-4"><h4 class="text-white mb-4"><i class="bi bi-graph-up me-2"></i>AnalyticsHub</h4><ul class="nav flex-column"><li><a class="nav-link ${currentPage==='dashboard'?'active':''}" href="#" onclick="renderDashboardPage();return false;"><i class="bi bi-speedometer2"></i> Dashboard</a></li><li><a class="nav-link ${currentPage==='rfm'?'active':''}" href="#" onclick="renderRFMPage();return false;"><i class="bi bi-people"></i> RFM</a></li><li><a class="nav-link ${currentPage==='inventory'?'active':''}" href="#" onclick="renderInventoryPage();return false;"><i class="bi bi-box"></i> Inventory</a></li><li><a class="nav-link ${currentPage==='forecast'?'active':''}" href="#" onclick="renderForecastPage();return false;"><i class="bi bi-graph-up"></i> Forecast</a></li></ul><hr><button onclick="resetData()" class="btn btn-outline-light w-100">Reset Data</button></div></div><div class="main-content flex-grow-1"><nav class="navbar-custom d-flex justify-content-between"><div class="mobile-toggle" id="mobileToggle"><i class="bi bi-list"></i></div><div class="fw-bold">📊 Advanced Analytics</div><div><i class="bi bi-person-circle"></i></div></nav><div class="container-fluid px-4 py-4"><div id="pageMessage"></div>${content}</div></div></div>`; }
+    function getKPIs() { const orders=JSON.parse(localStorage.getItem(STORAGE_KEYS.ORDERS)); const comp=orders.filter(o=>o.status==='delivered'); const total=comp.reduce((s,o)=>s+o.amount,0); return { total_revenue: total, total_orders: orders.length, completed_orders: comp.length, avg_order_value: comp.length?total/comp.length:0 }; }
+    function getRFM() { const cust=JSON.parse(localStorage.getItem(STORAGE_KEYS.CUSTOMERS)); const segments={ champions:0, loyal:0, at_risk:0, new:0, lost:0 }; cust.forEach(c=>{ if(c.order_count>5 && c.total_spent>300) segments.champions++; else if(c.order_count>2) segments.loyal++; else if(c.order_count===1) segments.new++; else if(c.total_spent<50) segments.lost++; else segments.at_risk++; }); return { segments, customers: cust }; }
+    function getInventoryTurnover() { const prods=JSON.parse(localStorage.getItem(STORAGE_KEYS.PRODUCTS)); return prods.map(p=>({...p, turnover: p.sold/5})).sort((a,b)=>b.turnover-a.turnover); }
+    function predictRevenue(months=3) { const sales=JSON.parse(localStorage.getItem(STORAGE_KEYS.SALES_DATA)); const revs=sales.map(d=>d.revenue); const n=revs.length; let sumX=0,sumY=0,sumXY=0,sumX2=0; for(let i=0;i<n;i++){ sumX+=i+1; sumY+=revs[i]; sumXY+=(i+1)*revs[i]; sumX2+=Math.pow(i+1,2); } const slope=(n*sumXY-sumX*sumY)/(n*sumX2-Math.pow(sumX,2)); const intercept=(sumY-slope*sumX)/n; const preds=[]; for(let i=1;i<=months;i++){ const pred=Math.max(0,intercept+slope*(n+i)); preds.push({ month: new Date(new Date().getFullYear(),new Date().getMonth()+i,1).toLocaleString('default',{month:'short'}), predicted: Math.round(pred), confidence_low: Math.round(pred*0.85), confidence_high: Math.round(pred*1.15) }); } return preds; }
+    function detectAnomalies() { const sales=JSON.parse(localStorage.getItem(STORAGE_KEYS.SALES_DATA)); const revs=sales.map(d=>d.revenue); const mean=revs.reduce((a,b)=>a+b,0)/revs.length; const std=Math.sqrt(revs.map(x=>Math.pow(x-mean,2)).reduce((a,b)=>a+b,0)/revs.length); return sales.filter(d=>Math.abs((d.revenue-mean)/std)>1.5).map(d=>({ month:d.month, revenue:d.revenue, expected:Math.round(mean), type:(d.revenue-mean)>0?'spike':'drop' })); }
+    function renderDashboardPage() { currentPage='dashboard'; const kpis=getKPIs(); const rfm=getRFM(); const anomalies=detectAnomalies(); const monthly=JSON.parse(localStorage.getItem(STORAGE_KEYS.SALES_DATA)); const content=`<div class="row g-4 mb-4"><div class="col-md-3"><div class="stat-card"><i class="bi bi-currency-dollar fs-2 text-success"></i><h2>${formatCurrency(kpis.total_revenue)}</h2><span>Revenue</span></div></div><div class="col-md-3"><div class="stat-card"><i class="bi bi-cart3 fs-2 text-primary"></i><h2>${kpis.total_orders}</h2><span>Orders</span></div></div><div class="col-md-3"><div class="stat-card"><i class="bi bi-receipt fs-2 text-warning"></i><h2>${formatCurrency(kpis.avg_order_value)}</h2><span>AOV</span></div></div><div class="col-md-3"><div class="stat-card"><i class="bi bi-people fs-2 text-info"></i><h2>${rfm.segments.champions+rfm.segments.loyal}</h2><span>Loyal Customers</span></div></div></div><div class="row"><div class="col-md-6"><div class="chart-container"><canvas id="revenueChart"></canvas></div></div><div class="col-md-6"><div class="chart-container"><canvas id="segmentChart"></canvas></div></div></div>${anomalies.length?`<div class="row mt-4"><div class="col-12"><div class="chart-container"><h6>Detected Anomalies</h6>${anomalies.map(a=>`<div class="anomaly-alert ${a.type}"><strong>${a.type==='spike'?'📈 Spike':'📉 Drop'}</strong> in ${a.month}: ${formatCurrency(a.revenue)} vs expected ${formatCurrency(a.expected)}</div>`).join('')}</div></div></div>`:''}`; document.getElementById('app').innerHTML=renderLayout(content); attachMobileToggle(); new Chart(document.getElementById('revenueChart'),{type:'line',data:{labels:monthly.map(d=>d.month),datasets:[{label:'Revenue',data:monthly.map(d=>d.revenue),borderColor:'#d4a373',fill:true}]}}); new Chart(document.getElementById('segmentChart'),{type:'doughnut',data:{labels:['Champions','Loyal','At Risk','New','Lost'],datasets:[{data:[rfm.segments.champions,rfm.segments.loyal,rfm.segments.at_risk,rfm.segments.new,rfm.segments.lost],backgroundColor:['#28a745','#17a2b8','#ffc107','#007bff','#dc3545']}]}}); }
+    function renderRFMPage() { currentPage='rfm'; const rfm=getRFM(); const content=`<h3>RFM Customer Analysis</h3><div class="row g-3 mb-4"><div class="col-md-2"><div class="stat-card p-2"><small>Champions</small><h4 class="text-success">${rfm.segments.champions}</h4></div></div><div class="col-md-2"><div class="stat-card p-2"><small>Loyal</small><h4 class="text-info">${rfm.segments.loyal}</h4></div></div><div class="col-md-2"><div class="stat-card p-2"><small>At Risk</small><h4 class="text-warning">${rfm.segments.at_risk}</h4></div></div><div class="col-md-2"><div class="stat-card p-2"><small>New</small><h4 class="text-primary">${rfm.segments.new}</h4></div></div><div class="col-md-2"><div class="stat-card p-2"><small>Lost</small><h4 class="text-danger">${rfm.segments.lost}</h4></div></div></div><div class="table-container"><table class="table"><thead><td><th>Customer</th><th>Orders</th><th>Spent</th><th>Segment</th></tr></thead><tbody>${rfm.customers.slice(0,15).map(c=>`<tr><td>${escapeHtml(c.name)}</td><td>${c.order_count}</td><td>${formatCurrency(c.total_spent)}</td><td>${c.order_count>5?'Champions':c.order_count>2?'Loyal':'At Risk'}</td></tr>`).join('')}</tbody></table></div>`; document.getElementById('app').innerHTML=renderLayout(content); attachMobileToggle(); }
+    function renderInventoryPage() { currentPage='inventory'; const inv=getInventoryTurnover(); const content=`<h3>Inventory Turnover</h3><div class="table-container"><table class="table"><thead><tr><th>Product</th><th>Category</th><th>Sold</th><th>Turnover</th><th>Status</th></tr></thead><tbody>${inv.map(i=>`<tr><td>${escapeHtml(i.name)}</td><td>${i.category}</td><td>${i.sold}</td><td>${i.turnover.toFixed(2)}</td><td><span class="badge ${i.turnover>3?'bg-success':i.turnover>1?'bg-warning':'bg-danger'}">${i.turnover>3?'Fast':i.turnover>1?'Slow':'Dead'}</span></td></tr>`).join('')}</tbody></table></div>`; document.getElementById('app').innerHTML=renderLayout(content); attachMobileToggle(); }
+    function renderForecastPage() { currentPage='forecast'; const preds=predictRevenue(6); const monthly=JSON.parse(localStorage.getItem(STORAGE_KEYS.SALES_DATA)); const content=`<h3>Sales Forecast</h3><div class="row"><div class="col-md-12"><div class="chart-container"><canvas id="forecastChart"></canvas></div></div></div><div class="row mt-4"><div class="col-md-12"><div class="prediction-card rounded-3 p-4"><h5>Predicted Monthly Revenue</h5><div class="row">${preds.map(p=>`<div class="col-md-2 mb-2"><div class="bg-white bg-opacity-10 rounded p-2 text-center"><strong>${p.month}</strong><br>${formatCurrency(p.predicted)}<br><small>${formatCurrency(p.confidence_low)}-${formatCurrency(p.confidence_high)}</small></div></div>`).join('')}</div></div></div></div>`; document.getElementById('app').innerHTML=renderLayout(content); attachMobileToggle(); const labels=[...monthly.map(d=>d.month),...preds.map(p=>p.month)]; const hist=monthly.map(d=>d.revenue); const fore=Array(monthly.length).fill(null).concat(preds.map(p=>p.predicted)); new Chart(document.getElementById('forecastChart'),{type:'line',data:{labels,datasets:[{label:'Historical',data:hist,borderColor:'#667eea'},{label:'Forecast',data:fore,borderColor:'#d4a373',borderDash:[5,5]}]}}); }
+    function resetData() { if(confirm('Reset all analytics data?')){ localStorage.removeItem(STORAGE_KEYS.SALES_DATA); localStorage.removeItem(STORAGE_KEYS.CUSTOMERS); localStorage.removeItem(STORAGE_KEYS.PRODUCTS); localStorage.removeItem(STORAGE_KEYS.ORDERS); initData(); renderDashboardPage(); alert('Data reset!'); } }
+    function attachMobileToggle(){ const t=document.getElementById('mobileToggle'),s=document.getElementById('sidebarMenu'); if(t&&s) t.onclick=()=>s.classList.toggle('show'); }
+    initData(); renderDashboardPage();
+    window.onscroll=function(){const b=document.getElementById('backToTopBtn');if(b)b.classList.toggle('show',window.scrollY>300);};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

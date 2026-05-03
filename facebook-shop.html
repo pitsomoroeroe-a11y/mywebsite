@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Facebook Shop | Lavos Bakery</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        :root { --fb-blue: #1877f2; --fb-dark: #1b1f23; }
+        * { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        
+        .fb-header { background: var(--fb-dark); color: white; padding: 12px 0; position: sticky; top: 0; z-index: 1000; }
+        .search-bar { background: #3a3b3c; border-radius: 24px; padding: 8px 16px; display: flex; align-items: center; gap: 10px; }
+        .search-bar input { background: transparent; border: none; color: white; width: 100%; outline: none; }
+        .search-bar input::placeholder { color: #b0b3b8; }
+        .search-filters { display: flex; gap: 8px; overflow-x: auto; padding: 10px 0; }
+        .filter-chip { background: #3a3b3c; padding: 6px 16px; border-radius: 20px; font-size: 13px; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
+        .filter-chip.active { background: var(--fb-blue); }
+        .filter-chip:hover { background: #4e4f54; }
+        
+        .shop-card { background: white; border-radius: 12px; overflow: hidden; transition: 0.3s; box-shadow: 0 1px 3px rgba(0,0,0,0.1); height: 100%; cursor: pointer; }
+        .shop-card img { height: 180px; width: 100%; object-fit: cover; }
+        .shop-card:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0,0,0,0.15); }
+        
+        .event-card, .group-card { background: white; border-radius: 12px; overflow: hidden; transition: 0.3s; border: 1px solid #e4e6eb; height: 100%; cursor: pointer; }
+        .search-result { display: flex; align-items: center; gap: 15px; padding: 12px; border-bottom: 1px solid #e4e6eb; cursor: pointer; transition: background 0.2s; }
+        .search-result:hover { background: #f0f2f5; }
+        
+        .fb-footer { background: var(--fb-dark); color: #8a8d91; padding: 30px 0 20px; margin-top: 40px; }
+        .fb-footer a { color: #8a8d91; text-decoration: none; font-size: 13px; }
+        .fb-footer a:hover { color: white; }
+        
+        .toast-notification { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 12px 24px; border-radius: 30px; font-size: 14px; z-index: 2000; animation: fadeInOut 2.5s ease; }
+        @keyframes fadeInOut { 0% { opacity: 0; transform: translateX(-50%) translateY(20px); } 15% { opacity: 1; transform: translateX(-50%) translateY(0); } 85% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-20px); } }
+        
+        @media (max-width: 768px) { .search-bar { flex: 1; } .filter-chip { font-size: 12px; padding: 4px 12px; } }
+    </style>
+</head>
+<body>
+
+<header class="fb-header">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center flex-wrap">
+            <div class="d-flex align-items-center">
+                <i class="bi bi-facebook fs-2 me-2" style="color: #1877f2;"></i>
+                <span class="fw-bold d-none d-sm-inline">Lavos Bakery</span>
+            </div>
+            <div class="search-bar flex-grow-1 mx-3" style="max-width: 400px;">
+                <i class="bi bi-search"></i>
+                <input type="text" id="searchInput" placeholder="Search Facebook" onkeypress="if(event.key=='Enter') performSearch()">
+                <input type="hidden" id="searchType" value="all">
+            </div>
+            <div class="d-flex gap-3">
+                <i class="bi bi-house-door fs-5" style="cursor: pointer;" onclick="location.reload()"></i>
+                <i class="bi bi-people fs-5" style="cursor: pointer;" onclick="showGroups()"></i>
+                <i class="bi bi-bell fs-5 d-none d-sm-inline"></i>
+            </div>
+        </div>
+        <div class="search-filters mt-2">
+            <span class="filter-chip active" data-type="all" onclick="setSearchType('all')">All</span>
+            <span class="filter-chip" data-type="page" onclick="setSearchType('page')">Pages</span>
+            <span class="filter-chip" data-type="group" onclick="setSearchType('group')">Groups</span>
+            <span class="filter-chip" data-type="event" onclick="setSearchType('event')">Events</span>
+        </div>
+    </div>
+</header>
+
+<main class="container py-3" id="mainContent"></main>
+
+<footer class="fb-footer">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-4"><h6>Lavos Bakery</h6><ul class="list-unstyled"><li><a href="#">About</a></li><li><a href="#">Privacy Policy</a></li><li><a href="#">Terms</a></li></ul></div>
+            <div class="col-md-4"><h6>Meta</h6><ul class="list-unstyled"><li><a href="#">Facebook</a></li><li><a href="#">Instagram</a></li><li><a href="#">WhatsApp</a></li></ul></div>
+            <div class="col-md-4"><select class="form-select form-select-sm w-50"><option>English (US)</option><option>Español</option></select><div class="mt-2 small">© 2024 Lavos Bakery</div></div>
+        </div>
+    </div>
+</footer>
+
+<script>
+    // Initialize localStorage data
+    const STORAGE_KEYS = {
+        FB_PRODUCTS: 'fb_shop_products',
+        FB_EVENTS: 'fb_shop_events',
+        FB_GROUPS: 'fb_shop_groups',
+        FB_SEARCH_HISTORY: 'fb_search_history'
+    };
+    
+    function initData() {
+        if (!localStorage.getItem(STORAGE_KEYS.FB_PRODUCTS)) {
+            localStorage.setItem(STORAGE_KEYS.FB_PRODUCTS, JSON.stringify([
+                { id: 1, name: 'Royal Wedding Cake', description: '3-tier white wedding cake with gold leaf decorations', price: 299.99, sale_price: 249.99, category: 'wedding', image_url: 'https://images.pexels.com/photos/1721934/pexels-photo-1721934.jpeg?w=300', likes: 1523, shares: 89 },
+                { id: 2, name: 'Rainbow Birthday Cake', description: 'Colorful layers with buttercream frosting', price: 89.99, sale_price: 79.99, category: 'birthday', image_url: 'https://images.pexels.com/photos/291528/pexels-photo-291528.jpeg?w=300', likes: 3421, shares: 156 },
+                { id: 3, name: 'Gold Celebration Cake', description: '24k edible gold drip celebration cake', price: 159.99, sale_price: 139.99, category: 'celebration', image_url: 'https://images.pexels.com/photos/746016/pexels-photo-746016.jpeg?w=300', likes: 2456, shares: 234 },
+                { id: 4, name: 'Chocolate Fudge Cake', description: 'Rich chocolate layers with ganache', price: 79.99, sale_price: 69.99, category: 'birthday', image_url: 'https://images.pexels.com/photos/1854651/pexels-photo-1854651.jpeg?w=300', likes: 1890, shares: 102 },
+                { id: 5, name: 'Rustic Wedding Cake', description: 'Naked cake with fresh berries', price: 249.99, sale_price: 229.99, category: 'wedding', image_url: 'https://images.pexels.com/photos/461428/pexels-photo-461428.jpeg?w=300', likes: 987, shares: 45 },
+                { id: 6, name: 'Anniversary Rose Cake', description: 'Red velvet with cream cheese roses', price: 129.99, sale_price: null, category: 'celebration', image_url: 'https://images.pexels.com/photos/1126359/pexels-photo-1126359.jpeg?w=300', likes: 756, shares: 34 }
+            ]));
+        }
+        if (!localStorage.getItem(STORAGE_KEYS.FB_EVENTS)) {
+            localStorage.setItem(STORAGE_KEYS.FB_EVENTS, JSON.stringify([
+                { id: 1, name: 'Cake Tasting Festival', description: 'Join us for a free cake tasting event!', date: '2025-01-15T14:00:00', location: '123 Bakery Lane, NY', image_url: 'https://images.pexels.com/photos/1721934/pexels-photo-1721934.jpeg?w=600', attendees: 245 },
+                { id: 2, name: 'Wedding Cake Webinar', description: 'Learn wedding cake design tips', date: '2025-01-20T18:00:00', location: 'Online - Facebook Live', image_url: 'https://images.pexels.com/photos/1854652/pexels-photo-1854652.jpeg?w=600', attendees: 567 }
+            ]));
+        }
+        if (!localStorage.getItem(STORAGE_KEYS.FB_GROUPS)) {
+            localStorage.setItem(STORAGE_KEYS.FB_GROUPS, JSON.stringify([
+                { id: 1, name: 'Lavos Bakery Lovers', description: 'Community for cake enthusiasts', image_url: 'https://images.pexels.com/photos/1721934/pexels-photo-1721934.jpeg?w=300', members: 2500, is_private: false },
+                { id: 2, name: 'Wedding Cake Planning', description: 'Discuss wedding cake ideas', image_url: 'https://images.pexels.com/photos/1854652/pexels-photo-1854652.jpeg?w=300', members: 1200, is_private: true }
+            ]));
+        }
+        if (!localStorage.getItem(STORAGE_KEYS.FB_SEARCH_HISTORY)) {
+            localStorage.setItem(STORAGE_KEYS.FB_SEARCH_HISTORY, JSON.stringify([]));
+        }
+    }
+    
+    let currentSearchType = 'all';
+    let searchQuery = '';
+    let isSearching = false;
+    
+    function showToast(message) {
+        const toast = document.createElement('div');
+        toast.className = 'toast-notification';
+        toast.innerHTML = `<i class="bi bi-check-circle"></i> ${message}`;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2500);
+    }
+    
+    function setSearchType(type) {
+        currentSearchType = type;
+        document.querySelectorAll('.filter-chip').forEach(chip => {
+            chip.classList.remove('active');
+            if (chip.dataset.type === type) chip.classList.add('active');
+        });
+        if (searchQuery) performSearch();
+    }
+    
+    function performSearch() {
+        searchQuery = document.getElementById('searchInput').value.trim();
+        if (!searchQuery) {
+            renderHomePage();
+            return;
+        }
+        isSearching = true;
+        
+        // Save search history
+        let history = JSON.parse(localStorage.getItem(STORAGE_KEYS.FB_SEARCH_HISTORY));
+        history.unshift({ query: searchQuery, timestamp: new Date().toISOString() });
+        history = history.slice(0, 10);
+        localStorage.setItem(STORAGE_KEYS.FB_SEARCH_HISTORY, JSON.stringify(history));
+        
+        let results = [];
+        const products = JSON.parse(localStorage.getItem(STORAGE_KEYS.FB_PRODUCTS));
+        const events = JSON.parse(localStorage.getItem(STORAGE_KEYS.FB_EVENTS));
+        const groups = JSON.parse(localStorage.getItem(STORAGE_KEYS.FB_GROUPS));
+        
+        if (currentSearchType === 'all' || currentSearchType === 'page') {
+            results.push(...products.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.description.toLowerCase().includes(searchQuery.toLowerCase())).map(p => ({ ...p, type: 'product' })));
+        }
+        if (currentSearchType === 'all' || currentSearchType === 'group') {
+            results.push(...groups.filter(g => g.name.toLowerCase().includes(searchQuery.toLowerCase()) || g.description.toLowerCase().includes(searchQuery.toLowerCase())).map(g => ({ ...g, type: 'group' })));
+        }
+        if (currentSearchType === 'all' || currentSearchType === 'event') {
+            results.push(...events.filter(e => e.name.toLowerCase().includes(searchQuery.toLowerCase()) || e.description.toLowerCase().includes(searchQuery.toLowerCase()) || e.location.toLowerCase().includes(searchQuery.toLowerCase())).map(e => ({ ...e, type: 'event' })));
+        }
+        
+        renderSearchResults(results, searchQuery);
+    }
+    
+    function renderSearchResults(results, query) {
+        const container = document.getElementById('mainContent');
+        if (results.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-5"><i class="bi bi-search fs-1 text-muted"></i><h6 class="mt-3">No results found for "${escapeHtml(query)}"</h6><div class="mt-3">Try searching for something else</div></div>
+            `;
+            return;
+        }
+        
+        let html = `<h5>Results for "${escapeHtml(query)}"</h5><p class="small text-muted">${results.length} results</p><div class="search-results">`;
+        results.forEach(r => {
+            if (r.type === 'product') {
+                html += `<div class="search-result" onclick="viewProduct(${r.id})"><img src="${r.image_url}" width="50" height="50" class="rounded"><div><strong>${escapeHtml(r.name)}</strong><div class="small text-muted">$${r.sale_price || r.price}</div></div></div>`;
+            } else if (r.type === 'group') {
+                html += `<div class="search-result" onclick="joinGroup(${r.id})"><img src="${r.image_url}" width="50" height="50" class="rounded-circle"><div><strong>${escapeHtml(r.name)}</strong><div class="small text-muted">${r.members} members • ${r.is_private ? 'Private' : 'Public'}</div></div></div>`;
+            } else if (r.type === 'event') {
+                html += `<div class="search-result" onclick="rsvpEvent(${r.id})"><img src="${r.image_url}" width="50" height="50" class="rounded"><div><strong>${escapeHtml(r.name)}</strong><div class="small text-muted">${new Date(r.date).toLocaleDateString()} • ${escapeHtml(r.location)}</div></div></div>`;
+            }
+        });
+        html += `</div>`;
+        container.innerHTML = html;
+    }
+    
+    function renderHomePage() {
+        const products = JSON.parse(localStorage.getItem(STORAGE_KEYS.FB_PRODUCTS)).filter(p => p.id <= 6);
+        const groups = JSON.parse(localStorage.getItem(STORAGE_KEYS.FB_GROUPS));
+        const events = JSON.parse(localStorage.getItem(STORAGE_KEYS.FB_EVENTS));
+        const transparency = { ad_spent: 12500 };
+        
+        const container = document.getElementById('mainContent');
+        container.innerHTML = `
+            <div class="bg-primary text-white rounded-4 p-3 mb-4 d-flex justify-content-between align-items-center flex-wrap">
+                <div><i class="bi bi-megaphone-fill"></i> <strong>Sponsored</strong><div class="small">🎂 Wedding Season Special - 20% off all wedding cakes!</div></div>
+                <button class="btn btn-light btn-sm" onclick="showToast('Special offer applied!')">Shop Now</button>
+            </div>
+            <h5><i class="bi bi-shop"></i> Featured Products</h5>
+            <div class="row g-3 mb-4">${products.map(p => `
+                <div class="col-6 col-md-3"><div class="shop-card" onclick="viewProduct(${p.id})"><img src="${p.image_url}"><div class="p-2"><h6 class="small">${escapeHtml(p.name)}</h6><div class="fw-bold text-primary">$${p.sale_price || p.price}</div><button class="btn btn-primary btn-sm w-100 mt-1" onclick="event.stopPropagation(); buyNow(${p.id})">Buy Now</button></div></div></div>
+            `).join('')}</div>
+            <h5><i class="bi bi-people-fill"></i> Groups You May Like</h5>
+            <div class="row g-3 mb-4">${groups.map(g => `
+                <div class="col-6 col-md-3"><div class="group-card text-center p-3" onclick="joinGroup(${g.id})"><img src="${g.image_url}" class="rounded-circle" width="60" height="60"><h6 class="mt-2">${escapeHtml(g.name)}</h6><small class="text-muted">${g.members} members</small><button class="btn btn-outline-primary btn-sm w-100 mt-2">Join Group</button></div></div>
+            `).join('')}</div>
+            <h5><i class="bi bi-calendar-event"></i> Upcoming Events</h5>
+            <div class="row g-3 mb-4">${events.map(e => `
+                <div class="col-md-4"><div class="event-card" onclick="rsvpEvent(${e.id})"><img src="${e.image_url}" style="height: 150px; width: 100%; object-fit: cover;"><div class="p-3"><h6>${escapeHtml(e.name)}</h6><small>${new Date(e.date).toLocaleDateString()}</small><button class="btn btn-primary btn-sm w-100 mt-2">Interested</button></div></div></div>
+            `).join('')}</div>
+            <div class="bg-light rounded-3 p-3 mt-3"><div class="d-flex justify-content-between align-items-center flex-wrap"><div><i class="bi bi-shield-check text-success"></i> <strong>Page Transparency</strong><div class="small">✓ Verified Business • Ad Activity: $${transparency.ad_spent} spent</div></div><a href="#" class="small">See More</a></div></div>
+        `;
+        isSearching = false;
+    }
+    
+    function viewProduct(id) { showToast(`Viewing product #${id}`); }
+    function joinGroup(id) { showToast(`Joined group #${id}`); }
+    function rsvpEvent(id) { showToast(`RSVP confirmed for event #${id}`); }
+    function buyNow(id) { showToast(`Product #${id} added to cart!`); }
+    function showGroups() { showToast('Showing groups'); }
+    function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, function(m){ if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
+    
+    document.getElementById('searchInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') performSearch(); });
+    
+    initData();
+    renderHomePage();
+</script>
+</body>
+</html>

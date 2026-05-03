@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Module 1: Shopping Cart & Checkout | Lavos Bakery</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body { background: linear-gradient(135deg, #f8f9fa, #e9ecef); font-family: 'Segoe UI', sans-serif; }
+        .product-card, .cart-item { background: white; border-radius: 20px; transition: 0.2s; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        .product-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .step-indicator { display: flex; justify-content: space-between; margin-bottom: 30px; position: relative; }
+        .step { flex: 1; text-align: center; position: relative; z-index: 1; }
+        .step-circle { width: 40px; height: 40px; background: #dee2e6; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; transition: 0.3s; }
+        .step.active .step-circle { background: #d4a373; color: white; }
+        .step.completed .step-circle { background: #28a745; color: white; }
+        .step-indicator::before { content: ''; position: absolute; top: 20px; left: 0; right: 0; height: 2px; background: #dee2e6; z-index: 0; }
+        .btn-warm { background: #d4a373; border: none; color: #2c3e50; font-weight: 600; border-radius: 40px; padding: 10px 25px; }
+        .btn-warm:hover { background: #c4956a; transform: translateY(-2px); }
+    </style>
+</head>
+<body class="bg-light">
+<div class="container py-4" id="app"></div>
+
+<script>
+    // ---------- Data & Storage ----------
+    let products = JSON.parse(localStorage.getItem('cart_products')) || [
+        { id: 1, name: 'Royal Wedding Cake', price: 299.99, stock: 10, image: '🎂', category: 'Wedding' },
+        { id: 2, name: 'Rainbow Birthday Cake', price: 89.99, stock: 15, image: '🌈', category: 'Birthday' },
+        { id: 3, name: 'Gold Celebration Cake', price: 159.99, stock: 7, image: '✨', category: 'Celebration' },
+        { id: 4, name: 'Chocolate Fudge Cake', price: 79.99, stock: 20, image: '🍫', category: 'Chocolate' }
+    ];
+    let cart = JSON.parse(localStorage.getItem('cart_items')) || [];
+    let currentStep = 'cart';
+    let lastOrder = null;
+
+    const saveToLocal = () => {
+        localStorage.setItem('cart_products', JSON.stringify(products));
+        localStorage.setItem('cart_items', JSON.stringify(cart));
+    };
+
+    const generateOrderNumber = () => 'ORD' + Date.now() + Math.floor(Math.random() * 1000);
+
+    const getCartSummary = () => {
+        let subtotal = cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+        let tax = subtotal * 0.08;
+        let shipping = subtotal >= 50 ? 0 : 5.99;
+        let total = subtotal + tax + shipping;
+        return { subtotal, tax, shipping, total, count: cart.reduce((s,i)=>s+i.quantity,0) };
+    };
+
+    const renderProducts = () => {
+        return `<div class="row g-4">${products.map(p => `
+            <div class="col-md-3">
+                <div class="product-card p-3 text-center">
+                    <div class="fs-1">${p.image}</div>
+                    <h6>${p.name}</h6>
+                    <p class="text-primary fw-bold">$${p.price}</p>
+                    <p><small class="text-muted">Stock: ${p.stock}</small></p>
+                    <button class="btn btn-sm btn-warm" onclick="addToCart(${p.id})">Add to Cart</button>
+                </div>
+            </div>
+        `).join('')}</div>`;
+    };
+
+    const renderCart = () => {
+        const summary = getCartSummary();
+        if(cart.length === 0) return `<div class="alert alert-info text-center">Your cart is empty. Add some cakes!</div>`;
+        return `
+            <div class="row">
+                <div class="col-lg-8">
+                    ${cart.map(item => `
+                        <div class="cart-item p-3 mb-3 d-flex justify-content-between align-items-center">
+                            <div><strong>${item.name}</strong><br><small>$${item.price} each</small></div>
+                            <div class="d-flex align-items-center gap-2">
+                                <button class="btn btn-sm btn-outline-secondary" onclick="updateQty(${item.id}, ${item.quantity-1})">-</button>
+                                <span class="mx-2">${item.quantity}</span>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="updateQty(${item.id}, ${item.quantity+1})">+</button>
+                            </div>
+                            <div><strong>$${(item.price * item.quantity).toFixed(2)}</strong></div>
+                            <button class="btn btn-link text-danger" onclick="removeFromCart(${item.id})"><i class="bi bi-trash"></i></button>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="col-lg-4">
+                    <div class="card p-3">
+                        <h5>Order Summary</h5>
+                        <div class="d-flex justify-content-between"><span>Subtotal (${summary.count} items)</span><span>$${summary.subtotal.toFixed(2)}</span></div>
+                        <div class="d-flex justify-content-between"><span>Shipping</span><span>$${summary.shipping.toFixed(2)}</span></div>
+                        <div class="d-flex justify-content-between"><span>Tax (8%)</span><span>$${summary.tax.toFixed(2)}</span></div>
+                        <hr><div class="d-flex justify-content-between fw-bold"><span>Total</span><span>$${summary.total.toFixed(2)}</span></div>
+                        <button class="btn btn-warm w-100 mt-3" onclick="setStep('checkout')">Proceed to Checkout</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    };
+
+    const renderCheckout = () => {
+        const summary = getCartSummary();
+        return `
+            <div class="row">
+                <div class="col-md-7">
+                    <div class="card p-4">
+                        <h4>Shipping Information</h4>
+                        <form id="checkoutForm">
+                            <div class="row mb-3"><div class="col"><input type="text" name="fullname" class="form-control" placeholder="Full Name" required></div><div class="col"><input type="email" name="email" class="form-control" placeholder="Email" required></div></div>
+                            <div class="mb-3"><input type="tel" name="phone" class="form-control" placeholder="Phone" required></div>
+                            <div class="mb-3"><input type="text" name="address" class="form-control" placeholder="Street Address" required></div>
+                            <div class="row mb-3"><div class="col"><input type="text" name="city" placeholder="City" required></div><div class="col"><input type="text" name="state" placeholder="State" required></div><div class="col"><input type="text" name="zip" placeholder="ZIP" required></div></div>
+                            <div class="mb-3"><label>Payment Method</label><select name="payment_method" class="form-select"><option>Credit Card</option><option>PayPal</option><option>Bank Transfer</option></select></div>
+                            <button type="submit" class="btn btn-warm w-100">Place Order</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="col-md-5"><div class="card p-3"><h5>Order Summary</h5><div class="d-flex justify-content-between"><span>Total</span><strong>$${summary.total.toFixed(2)}</strong></div></div></div>
+            </div>
+        `;
+    };
+
+    const renderConfirmation = (order) => {
+        return `
+            <div class="card text-center p-5">
+                <i class="bi bi-check-circle-fill text-success fs-1"></i>
+                <h3>Order Placed Successfully!</h3>
+                <p>Order Number: <strong>${order.order_number}</strong></p>
+                <p>Total: $${order.total.toFixed(2)}</p>
+                <p>A confirmation email has been sent to ${order.email} (simulated).</p>
+                <button class="btn btn-warm mt-3" onclick="resetToShop()">Continue Shopping</button>
+            </div>
+        `;
+    };
+
+    window.addToCart = (productId) => {
+        let product = products.find(p => p.id === productId);
+        if(!product || product.stock <= 0) { alert('Out of stock'); return; }
+        let existing = cart.find(i => i.id === productId);
+        if(existing) {
+            if(product.stock < existing.quantity + 1) { alert('Not enough stock'); return; }
+            existing.quantity++;
+        } else cart.push({ id: product.id, name: product.name, price: product.price, quantity: 1 });
+        saveToLocal();
+        renderCurrentStep();
+    };
+    window.updateQty = (id, qty) => {
+        if(qty < 1) return removeFromCart(id);
+        let product = products.find(p => p.id === id);
+        let item = cart.find(i => i.id === id);
+        if(product && qty > product.stock) { alert('Stock limit exceeded'); return; }
+        item.quantity = qty;
+        saveToLocal();
+        renderCurrentStep();
+    };
+    window.removeFromCart = (id) => { cart = cart.filter(i => i.id !== id); saveToLocal(); renderCurrentStep(); };
+    window.setStep = (step) => { if(step === 'cart' || step === 'checkout') currentStep = step; renderCurrentStep(); };
+    window.resetToShop = () => { window.location.reload(); };
+
+    document.addEventListener('submit', (e) => {
+        if(e.target.id === 'checkoutForm') {
+            e.preventDefault();
+            const summary = getCartSummary();
+            if(cart.length === 0) { alert('Cart empty'); return; }
+            // simulate stock reduction
+            for(let item of cart) {
+                let prod = products.find(p => p.id === item.id);
+                if(prod) prod.stock -= item.quantity;
+            }
+            let order = {
+                order_number: generateOrderNumber(),
+                total: summary.total,
+                email: e.target.email.value,
+                name: e.target.fullname.value,
+                date: new Date().toISOString()
+            };
+            localStorage.setItem('last_order', JSON.stringify(order));
+            cart = [];
+            saveToLocal();
+            currentStep = 'confirmation';
+            renderCurrentStep(order);
+            alert(`Order ${order.order_number} placed! (simulated email sent)`);
+        }
+    });
+
+    function renderCurrentStep(order = null) {
+        let main = document.getElementById('app');
+        let stepHtml = `<div class="step-indicator mb-4">
+            <div class="step ${currentStep === 'cart' ? 'active' : (currentStep !== 'cart' ? 'completed' : '')}"><div class="step-circle">1</div><div>Shopping Cart</div></div>
+            <div class="step ${currentStep === 'checkout' ? 'active' : (currentStep === 'confirmation' ? 'completed' : '')}"><div class="step-circle">2</div><div>Checkout</div></div>
+            <div class="step ${currentStep === 'confirmation' ? 'active' : ''}"><div class="step-circle">3</div><div>Confirmation</div></div>
+        </div>`;
+        if(currentStep === 'cart') main.innerHTML = stepHtml + `<h3 class="mb-3"><i class="bi bi-cart3"></i> Our Cakes</h3>${renderProducts()}<hr><h3>Shopping Cart</h3>${renderCart()}`;
+        else if(currentStep === 'checkout') main.innerHTML = stepHtml + renderCheckout();
+        else if(currentStep === 'confirmation') main.innerHTML = stepHtml + renderConfirmation(order || JSON.parse(localStorage.getItem('last_order') || '{}'));
+    }
+    renderCurrentStep();
+</script>
+</body>
+</html>

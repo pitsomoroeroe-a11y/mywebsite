@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Social | Lavos Bakery</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #f0f2f5; font-family: 'Segoe UI', sans-serif; }
+        .navbar { background: linear-gradient(135deg, #075e54, #128c7e); padding: 12px 0; position: sticky; top: 0; z-index: 100; }
+        .navbar-brand { color: #fff !important; font-weight: bold; }
+        .post-card { background: #fff; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .post-header { padding: 15px; display: flex; align-items: center; }
+        .post-avatar { width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #075e54, #128c7e); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 20px; margin-right: 12px; }
+        .post-info { flex: 1; }
+        .post-name { font-weight: 600; }
+        .post-time { font-size: 11px; color: #65676b; }
+        .post-content { padding: 15px; }
+        .post-media { background: #f0f2f5; height: 250px; display: flex; align-items: center; justify-content: center; }
+        .post-media i { font-size: 4rem; color: #25d366; }
+        .post-actions { padding: 10px 15px; border-top: 1px solid #e9ecef; display: flex; gap: 20px; }
+        .action-btn { background: none; border: none; color: #65676b; padding: 8px 12px; border-radius: 8px; transition: all 0.2s; cursor: pointer; }
+        .action-btn:hover { background: #f0f2f5; }
+        .action-btn.liked { color: #dc3545; }
+        .action-btn.liked i { animation: heartBeat 0.3s ease; }
+        @keyframes heartBeat { 0% { transform: scale(1); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
+        .user-card { background: #fff; border-radius: 12px; padding: 15px; margin-bottom: 15px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 15px; }
+        .user-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .user-avatar { width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, #075e54, #128c7e); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 24px; position: relative; }
+        .online-dot { width: 12px; height: 12px; border-radius: 50%; background: #25d366; border: 2px solid #fff; position: absolute; bottom: 0; right: 0; }
+        .story-card { background: linear-gradient(135deg, #075e54, #128c7e); border-radius: 12px; padding: 15px; text-align: center; color: #fff; cursor: pointer; min-width: 100px; transition: transform 0.2s; }
+        .story-card:hover { transform: scale(1.05); }
+        .story-avatar { width: 60px; height: 60px; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; font-size: 30px; color: #075e54; }
+        .chat-sidebar { background: #fff; border-radius: 12px; height: 500px; display: flex; flex-direction: column; overflow: hidden; }
+        .chat-sidebar-header { background: #075e54; color: #fff; padding: 15px; font-weight: 600; }
+        .chat-list { flex: 1; overflow-y: auto; }
+        .chat-item { padding: 15px; border-bottom: 1px solid #e9ecef; cursor: pointer; transition: background 0.2s; }
+        .chat-item:hover { background: #f0f2f5; }
+        .toast-notification { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; border-radius: 30px; font-size: 14px; z-index: 2000; animation: fadeInOut 2s ease; }
+        @keyframes fadeInOut { 0% { opacity: 0; transform: translateX(-50%) translateY(20px); } 15% { opacity: 1; transform: translateX(-50%) translateY(0); } 85% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-20px); } }
+        @media (max-width: 768px) { .post-media { height: 180px; } }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+    <div class="container">
+        <a class="navbar-brand" href="#"><i class="bi bi-whatsapp"></i> Lavos Social</a>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item"><a class="nav-link active" href="#" onclick="renderFeedPage(); return false;"><i class="bi bi-house"></i> Feed</a></li>
+                <li class="nav-item"><a class="nav-link" href="#" onclick="renderChatPage(); return false;"><i class="bi bi-chat-dots"></i> Chat</a></li>
+                <li class="nav-item"><a class="nav-link" href="#" onclick="renderProfilePage(); return false;"><i class="bi bi-person"></i> Profile</a></li>
+            </ul>
+            <form class="d-flex ms-3"><input class="form-control form-control-sm" type="text" id="searchInput" placeholder="Search users..." onkeyup="searchUsers()"></form>
+        </div>
+    </div>
+</nav>
+
+<div class="container my-4" id="mainContent"></div>
+
+<script>
+    const STORAGE_KEYS = {
+        WA_SOCIAL_USERS: 'wa_social_users',
+        WA_SOCIAL_POSTS: 'wa_social_posts',
+        WA_SOCIAL_STORIES: 'wa_social_stories',
+        WA_SOCIAL_FOLLOWS: 'wa_social_follows',
+        WA_SOCIAL_LIKES: 'wa_social_likes',
+        WA_SOCIAL_COMMENTS: 'wa_social_comments',
+        WA_SOCIAL_CONVERSATIONS: 'wa_social_conversations',
+        WA_SOCIAL_MESSAGES: 'wa_social_messages'
+    };
+    
+    let currentUser = null;
+    let selectedChatUser = null;
+    
+    function initData() {
+        if (!localStorage.getItem(STORAGE_KEYS.WA_SOCIAL_USERS)) {
+            localStorage.setItem(STORAGE_KEYS.WA_SOCIAL_USERS, JSON.stringify([
+                { id: 1, username: 'lavos_bakery', full_name: 'Lavos Bakery', email: 'bakery@lavos.com', phone: '+639123456789', bio: 'Official account. Fresh daily! 🍰', avatar: null, is_online: true, is_verified: true, followers: 2500, following: 120, posts: 45 },
+                { id: 2, username: 'john_doe', full_name: 'John Doe', email: 'john@example.com', phone: '+639123456780', bio: 'Food lover 🍕', avatar: null, is_online: false, is_verified: false, followers: 120, following: 200, posts: 12 },
+                { id: 3, username: 'jane_smith', full_name: 'Jane Smith', email: 'jane@example.com', phone: '+639123456781', bio: 'Pastry chef 🥐', avatar: null, is_online: true, is_verified: false, followers: 350, following: 180, posts: 28 }
+            ]));
+        }
+        if (!localStorage.getItem(STORAGE_KEYS.WA_SOCIAL_POSTS)) {
+            localStorage.setItem(STORAGE_KEYS.WA_SOCIAL_POSTS, JSON.stringify([
+                { id: 1, user_id: 1, content: 'New Signature Chocolate Cake! Order now 🍫', media_url: null, likes: 45, comments: 12, shares: 234, created_at: new Date().toISOString() },
+                { id: 2, user_id: 1, content: 'Fresh croissants just out of the oven! 🥐', media_url: null, likes: 38, comments: 9, shares: 189, created_at: new Date(Date.now() - 86400000).toISOString() },
+                { id: 3, user_id: 1, content: 'Red Velvet – our bestseller! ❤️', media_url: null, likes: 52, comments: 15, shares: 312, created_at: new Date(Date.now() - 172800000).toISOString() }
+            ]));
+        }
+        if (!localStorage.getItem(STORAGE_KEYS.WA_SOCIAL_STORIES)) {
+            localStorage.setItem(STORAGE_KEYS.WA_SOCIAL_STORIES, JSON.stringify([
+                { id: 1, user_id: 1, caption: '🎉 New cake designs available!', media_type: 'image', expiry: new Date(Date.now() + 86400000).toISOString(), created_at: new Date().toISOString() }
+            ]));
+        }
+        if (!localStorage.getItem(STORAGE_KEYS.WA_SOCIAL_FOLLOWS)) localStorage.setItem(STORAGE_KEYS.WA_SOCIAL_FOLLOWS, JSON.stringify([]));
+        if (!localStorage.getItem(STORAGE_KEYS.WA_SOCIAL_LIKES)) localStorage.setItem(STORAGE_KEYS.WA_SOCIAL_LIKES, JSON.stringify([]));
+        if (!localStorage.getItem(STORAGE_KEYS.WA_SOCIAL_COMMENTS)) localStorage.setItem(STORAGE_KEYS.WA_SOCIAL_COMMENTS, JSON.stringify([]));
+        if (!localStorage.getItem(STORAGE_KEYS.WA_SOCIAL_CONVERSATIONS)) localStorage.setItem(STORAGE_KEYS.WA_SOCIAL_CONVERSATIONS, JSON.stringify([]));
+        if (!localStorage.getItem(STORAGE_KEYS.WA_SOCIAL_MESSAGES)) localStorage.setItem(STORAGE_KEYS.WA_SOCIAL_MESSAGES, JSON.stringify([]));
+        
+        if (!currentUser) {
+            const users = JSON.parse(localStorage.getItem(STORAGE_KEYS.WA_SOCIAL_USERS));
+            currentUser = users[0];
+            localStorage.setItem('wa_current_user', JSON.stringify(currentUser));
+        }
+    }
+    
+    function showToast(msg) { const t=document.createElement('div'); t.className='toast-notification'; t.innerHTML=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),2000); }
+    function escapeHtml(s) { if(!s) return ''; return s.replace(/[&<>]/g, function(m){ if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
+    function formatDate(d) { return new Date(d).toLocaleDateString('en-US', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}); }
+    
+    function getUsers() { return JSON.parse(localStorage.getItem(STORAGE_KEYS.WA_SOCIAL_USERS)); }
+    function getPosts() { return JSON.parse(localStorage.getItem(STORAGE_KEYS.WA_SOCIAL_POSTS)); }
+    function getStories() { return JSON.parse(localStorage.getItem(STORAGE_KEYS.WA_SOCIAL_STORIES)); }
+    function getFollows() { return JSON.parse(localStorage.getItem(STORAGE_KEYS.WA_SOCIAL_FOLLOWS)); }
+    function getLikes() { return JSON.parse(localStorage.getItem(STORAGE_KEYS.WA_SOCIAL_LIKES)); }
+    function getComments() { return JSON.parse(localStorage.getItem(STORAGE_KEYS.WA_SOCIAL_COMMENTS)); }
+    function getConversations() { return JSON.parse(localStorage.getItem(STORAGE_KEYS.WA_SOCIAL_CONVERSATIONS)); }
+    function getMessages() { return JSON.parse(localStorage.getItem(STORAGE_KEYS.WA_SOCIAL_MESSAGES)); }
+    
+    function isFollowing(followerId, followingId) { return getFollows().some(f => f.follower_id === followerId && f.following_id === followingId); }
+    function isLiked(postId, userId) { return getLikes().some(l => l.post_id === postId && l.user_id === userId); }
+    
+    function followUser(userId) {
+        let follows = getFollows();
+        if(isFollowing(currentUser.id, userId)) {
+            follows = follows.filter(f => !(f.follower_id === currentUser.id && f.following_id === userId));
+            showToast('Unfollowed');
+        } else {
+            follows.push({ id: Date.now(), follower_id: currentUser.id, following_id: userId, created_at: new Date().toISOString() });
+            showToast('Followed');
+        }
+        localStorage.setItem(STORAGE_KEYS.WA_SOCIAL_FOLLOWS, JSON.stringify(follows));
+        renderFeedPage();
+    }
+    
+    function likePost(postId) {
+        let likes = getLikes();
+        const existing = likes.find(l => l.post_id === postId && l.user_id === currentUser.id);
+        let posts = getPosts();
+        const postIndex = posts.findIndex(p => p.id === postId);
+        if(existing) {
+            likes = likes.filter(l => !(l.post_id === postId && l.user_id === currentUser.id));
+            if(postIndex !== -1) posts[postIndex].likes--;
+        } else {
+            likes.push({ id: Date.now(), post_id: postId, user_id: currentUser.id, created_at: new Date().toISOString() });
+            if(postIndex !== -1) posts[postIndex].likes++;
+        }
+        localStorage.setItem(STORAGE_KEYS.WA_SOCIAL_LIKES, JSON.stringify(likes));
+        localStorage.setItem(STORAGE_KEYS.WA_SOCIAL_POSTS, JSON.stringify(posts));
+        renderFeedPage();
+        showToast(existing ? 'Unliked' : 'Liked!');
+    }
+    
+    function addComment(postId, commentText) {
+        if(!commentText.trim()) return;
+        let comments = getComments();
+        comments.push({ id: Date.now(), post_id: postId, user_id: currentUser.id, comment: commentText, created_at: new Date().toISOString() });
+        localStorage.setItem(STORAGE_KEYS.WA_SOCIAL_COMMENTS, JSON.stringify(comments));
+        let posts = getPosts();
+        const postIndex = posts.findIndex(p => p.id === postId);
+        if(postIndex !== -1) posts[postIndex].comments++;
+        localStorage.setItem(STORAGE_KEYS.WA_SOCIAL_POSTS, JSON.stringify(posts));
+        renderFeedPage();
+        showToast('Comment added!');
+    }
+    
+    function sendMessage(receiverId, message) {
+        if(!message.trim()) return;
+        let messages = getMessages();
+        messages.push({ id: Date.now(), sender_id: currentUser.id, receiver_id: receiverId, message: message, is_read: false, created_at: new Date().toISOString() });
+        localStorage.setItem(STORAGE_KEYS.WA_SOCIAL_MESSAGES, JSON.stringify(messages));
+        
+        let conv = getConversations();
+        const a = Math.min(currentUser.id, receiverId);
+        const b = Math.max(currentUser.id, receiverId);
+        const existing = conv.find(c => c.user1_id === a && c.user2_id === b);
+        if(existing) {
+            existing.last_message = message;
+            existing.last_message_time = new Date().toISOString();
+            if(currentUser.id === a) existing.unread_count_user2++;
+            else existing.unread_count_user1++;
+        } else {
+            conv.push({ id: Date.now(), user1_id: a, user2_id: b, last_message: message, last_message_time: new Date().toISOString(), unread_count_user1: currentUser.id === a ? 0 : 1, unread_count_user2: currentUser.id === b ? 0 : 1 });
+        }
+        localStorage.setItem(STORAGE_KEYS.WA_SOCIAL_CONVERSATIONS, JSON.stringify(conv));
+        if(selectedChatUser === receiverId) renderChatMessages(receiverId);
+        showToast('Message sent!');
+    }
+    
+    function renderFeedPage() {
+        const posts = getPosts().sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+        const users = getUsers();
+        const stories = getStories().filter(s => new Date(s.expiry) > new Date());
+        
+        const userMap = {};
+        users.forEach(u => userMap[u.id] = u);
+        
+        let storiesHtml = `<div class="row mb-4"><div class="col-12"><div class="d-flex gap-3 overflow-auto pb-2">`;
+        stories.forEach(s => { const u = userMap[s.user_id]; if(u) storiesHtml += `<div class="story-card" onclick="viewStory(${s.id})"><div class="story-avatar"><i class="bi bi-person-circle"></i></div><small>${escapeHtml(u.full_name.split(' ')[0])}</small></div>`; });
+        storiesHtml += `</div></div></div>`;
+        
+        let feedHtml = `<div class="row"><div class="col-md-8">${storiesHtml}${posts.map(p => {
+            const u = userMap[p.user_id];
+            const isLikedByUser = isLiked(p.id, currentUser.id);
+            const comments = getComments().filter(c => c.post_id === p.id);
+            return `<div class="post-card"><div class="post-header"><div class="post-avatar"><i class="bi bi-person-circle"></i></div><div class="post-info"><div class="post-name">${escapeHtml(u?.full_name || 'User')} ${u?.is_verified ? '<i class="bi bi-patch-check-fill text-primary"></i>' : ''}</div><div class="post-time">${formatDate(p.created_at)}</div></div></div><div class="post-content"><p>${escapeHtml(p.content)}</p></div><div class="post-media"><i class="bi bi-cake2"></i></div><div class="post-actions"><button class="action-btn ${isLikedByUser ? 'liked' : ''}" onclick="likePost(${p.id})"><i class="bi ${isLikedByUser ? 'bi-heart-fill' : 'bi-heart'}"></i> <span class="like-count">${p.likes}</span> Likes</button><button class="action-btn" onclick="toggleComments(${p.id})"><i class="bi bi-chat"></i> <span class="comment-count">${p.comments}</span> Comments</button><button class="action-btn" onclick="sharePost('${escapeHtml(p.content)}')"><i class="bi bi-share"></i> Share</button></div><div id="comments-${p.id}" style="display:none" class="p-3 border-top"><div class="input-group mb-2"><input type="text" id="comment-input-${p.id}" class="form-control form-control-sm" placeholder="Write a comment..."><button class="btn btn-sm btn-success" onclick="addComment(${p.id}, document.getElementById('comment-input-${p.id}').value)"><i class="bi bi-send"></i></button></div>${comments.map(c => { const cu = userMap[c.user_id]; return `<div class="d-flex gap-2 mb-2"><strong>${escapeHtml(cu?.full_name || 'User')}:</strong> <span>${escapeHtml(c.comment)}</span></div>`; }).join('')}</div></div>`;
+        }).join('')}</div><div class="col-md-4">${renderPeopleYouMayKnow()}</div></div>`;
+        document.getElementById('mainContent').innerHTML = feedHtml;
+    }
+    
+    function renderPeopleYouMayKnow() {
+        const users = getUsers().filter(u => u.id !== currentUser.id);
+        const follows = getFollows();
+        const followingIds = follows.filter(f => f.follower_id === currentUser.id).map(f => f.following_id);
+        return `<div class="bg-white rounded-3 p-3 mb-3"><h6><i class="bi bi-people"></i> People you may know</h6><hr>${users.slice(0,5).map(u => `<div class="user-card"><div class="position-relative"><div class="user-avatar"><i class="bi bi-person-circle"></i>${u.is_online?'<div class="online-dot"></div>':''}</div></div><div class="flex-grow-1"><div class="fw-semibold">${escapeHtml(u.full_name)}</div><small>@${escapeHtml(u.username)}</small></div>${followingIds.includes(u.id)?`<button class="btn btn-sm btn-outline-success" onclick="followUser(${u.id})">Following</button>`:`<button class="btn btn-sm btn-success" onclick="followUser(${u.id})">Follow</button>`}</div>`).join('')}</div>`;
+    }
+    
+    function renderChatPage() {
+        const conversations = getConversations().filter(c => c.user1_id === currentUser.id || c.user2_id === currentUser.id);
+        const users = getUsers();
+        const userMap = {};
+        users.forEach(u => userMap[u.id] = u);
+        
+        document.getElementById('mainContent').innerHTML = `<div class="row"><div class="col-md-4"><div class="chat-sidebar"><div class="chat-sidebar-header"><i class="bi bi-chat-dots"></i> Messages</div><div class="chat-list" id="chatList">${conversations.map(c => {
+            const otherId = c.user1_id === currentUser.id ? c.user2_id : c.user1_id;
+            const other = userMap[otherId];
+            const unread = c.user1_id === currentUser.id ? c.unread_count_user1 : c.unread_count_user2;
+            return `<div class="chat-item" onclick="openChat(${otherId})"><div class="d-flex align-items-center"><div><div class="user-avatar" style="width:40px;height:40px;font-size:18px"><i class="bi bi-person-circle"></i></div></div><div class="ms-3 flex-grow-1"><div class="fw-semibold">${escapeHtml(other?.full_name)}</div><small>${escapeHtml(c.last_message?.substring(0,30) || '')}</small></div>${unread>0?`<span class="badge bg-success rounded-pill">${unread}</span>`:''}</div></div>`;
+        }).join('')}${conversations.length===0?'<div class="text-center p-3 text-muted">No conversations yet</div>':''}</div></div></div><div class="col-md-8" id="chatArea"><div class="chat-sidebar"><div class="chat-sidebar-header">Select a chat</div><div class="text-center p-5 text-muted"><i class="bi bi-chat-dots fs-1"></i><p class="mt-3">Choose a conversation to start messaging</p></div></div></div></div>`;
+    }
+    
+    function openChat(otherId) {
+        selectedChatUser = otherId;
+        renderChatMessages(otherId);
+    }
+    
+    function renderChatMessages(otherId) {
+        const users = getUsers();
+        const other = users.find(u => u.id === otherId);
+        let messages = getMessages().filter(m => (m.sender_id === currentUser.id && m.receiver_id === otherId) || (m.sender_id === otherId && m.receiver_id === currentUser.id));
+        messages.sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+        
+        document.getElementById('chatArea').innerHTML = `<div class="chat-sidebar" style="height: 500px; display: flex; flex-direction: column;"><div class="chat-sidebar-header"><i class="bi bi-arrow-left me-2" style="cursor: pointer;" onclick="renderChatPage()"></i>${escapeHtml(other?.full_name)}</div><div class="chat-messages" style="flex:1; overflow-y: auto; padding: 15px;" id="chatMessages">${messages.map(m => `<div class="d-flex ${m.sender_id === currentUser.id ? 'justify-content-end' : 'justify-content-start'} mb-3"><div class="message-bubble ${m.sender_id === currentUser.id ? 'bg-primary text-white' : 'bg-light'}" style="max-width: 70%; padding: 8px 12px; border-radius: 18px;">${escapeHtml(m.message)}<div class="small ${m.sender_id === currentUser.id ? 'text-white-50' : 'text-muted'} mt-1">${new Date(m.created_at).toLocaleTimeString()}</div></div></div>`).join('')}${messages.length===0?'<div class="text-center text-muted">No messages yet</div>':''}</div><div class="p-3 border-top"><div class="input-group"><input type="text" id="messageInput" class="form-control" placeholder="Type a message..."><button class="btn btn-success" onclick="sendMessage(${otherId}, document.getElementById(\'messageInput\').value)"><i class="bi bi-send"></i></button></div></div></div>`;
+        const msgDiv = document.getElementById('chatMessages');
+        if(msgDiv) msgDiv.scrollTop = msgDiv.scrollHeight;
+    }
+    
+    function renderProfilePage() {
+        document.getElementById('mainContent').innerHTML = `
+            <div class="row"><div class="col-md-4 mx-auto"><div class="bg-white rounded-3 p-4 text-center"><div class="user-avatar mx-auto mb-3" style="width:100px;height:100px;font-size:50px"><i class="bi bi-person-circle"></i></div><h4>${escapeHtml(currentUser.full_name)}</h4><p class="text-muted">@${escapeHtml(currentUser.username)}</p><p>${escapeHtml(currentUser.bio || 'No bio yet')}</p><div class="row mt-3"><div class="col-4"><strong>${currentUser.posts}</strong><div><small>Posts</small></div></div><div class="col-4"><strong>${currentUser.followers}</strong><div><small>Followers</small></div></div><div class="col-4"><strong>${currentUser.following}</strong><div><small>Following</small></div></div></div><hr><a href="https://wa.me/${currentUser.phone.replace(/[^0-9]/g,'')}" target="_blank" class="btn btn-success w-100"><i class="bi bi-whatsapp"></i> Contact on WhatsApp</a></div></div></div>
+        `;
+    }
+    
+    function toggleComments(postId) { const div = document.getElementById(`comments-${postId}`); if(div) div.style.display = div.style.display === 'none' ? 'block' : 'none'; }
+    function sharePost(content) { window.open(`https://wa.me/?text=Check out this post: ${encodeURIComponent(content)}`, '_blank'); }
+    function viewStory(storyId) { showToast(`Viewing story #${storyId}`); }
+    function searchUsers() { const q = document.getElementById('searchInput').value.toLowerCase(); const users = getUsers().filter(u => u.full_name.toLowerCase().includes(q) || u.username.toLowerCase().includes(q)).slice(0,5); const follows = getFollows(); const followingIds = follows.filter(f => f.follower_id === currentUser.id).map(f => f.following_id); document.getElementById('mainContent').innerHTML = `<div class="row"><div class="col-md-6 mx-auto">${users.map(u => `<div class="user-card"><div class="user-avatar"><i class="bi bi-person-circle"></i></div><div class="flex-grow-1"><div class="fw-semibold">${escapeHtml(u.full_name)}</div><small>@${escapeHtml(u.username)}</small></div>${followingIds.includes(u.id)?`<button class="btn btn-sm btn-outline-success" onclick="followUser(${u.id})">Following</button>`:`<button class="btn btn-sm btn-success" onclick="followUser(${u.id})">Follow</button>`}</div>`).join('')}${users.length===0?'<div class="text-center p-5 text-muted">No users found</div>':''}</div></div>`; }
+    
+    initData();
+    renderFeedPage();
+</script>
+</body>
+</html>

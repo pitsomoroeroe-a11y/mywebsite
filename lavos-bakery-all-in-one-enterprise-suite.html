@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lavos Bakery | All-in-One Enterprise Suite</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); font-family: 'Segoe UI', sans-serif; }
+        .glass-card { background: white; border-radius: 28px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); padding: 25px; margin-bottom: 30px; }
+        .btn-warm { background: #d4a373; border: none; color: #2c3e50; font-weight: 600; border-radius: 40px; padding: 8px 20px; }
+        .product-tile { background: #f8f9fa; border-radius: 20px; padding: 15px; text-align: center; transition: 0.2s; cursor: pointer; }
+        .product-tile:hover { transform: translateY(-5px); background: #fff; box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        .timeline-icon { width: 35px; height: 35px; background: #e9ecef; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; }
+        .timeline-icon.completed { background: #d4a373; color: white; }
+        .nav-tabs .nav-link { font-weight: 600; color: #2c3e50; }
+        .nav-tabs .nav-link.active { background-color: #d4a373; color: white; border-color: #d4a373; }
+    </style>
+</head>
+<body>
+<div class="container py-4">
+    <div class="glass-card">
+        <h1 class="text-center"><i class="bi bi-cake2"></i> Lavos Bakery Enterprise Suite</h1>
+        <p class="text-center text-muted">Cart · Checkout · Order Tracking · History · Analytics · Invoices</p>
+    </div>
+
+    <ul class="nav nav-tabs mb-4" id="mainTab" role="tablist">
+        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#shop">🛒 Shop & Cart</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#track">📦 Track Order</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#history">📜 My Orders</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#stats">📊 Analytics</button></li>
+    </ul>
+
+    <div class="tab-content">
+        <!-- SHOP & CART TAB -->
+        <div class="tab-pane fade show active" id="shop">
+            <div class="row">
+                <div class="col-lg-8">
+                    <h4><i class="bi bi-grid"></i> Our Cakes</h4>
+                    <div class="row" id="productList"></div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="card p-3 sticky-top" style="top:20px;">
+                        <h5><i class="bi bi-cart3"></i> Your Cart</h5>
+                        <div id="cartItemsList">Cart is empty</div>
+                        <hr><div id="cartSummary"></div>
+                        <button id="checkoutBtn" class="btn btn-warm mt-2" disabled>Proceed to Checkout</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TRACK ORDER TAB -->
+        <div class="tab-pane fade" id="track">
+            <div class="card p-4"><h5>Track Your Order</h5><div class="row"><div class="col"><input type="text" id="trackNum" class="form-control" placeholder="Order Number"></div><div class="col"><input type="email" id="trackEmailAddr" class="form-control" placeholder="Your Email"></div><div class="col-auto"><button id="trackBtn" class="btn btn-warm">Track</button></div></div><div id="trackResult" class="mt-4"></div></div>
+        </div>
+
+        <!-- ORDER HISTORY TAB -->
+        <div class="tab-pane fade" id="history">
+            <div class="card p-4"><h5>Customer Order History</h5><div class="row"><div class="col"><input type="email" id="historyEmail" class="form-control" placeholder="Email Address"></div><div class="col-auto"><button id="historyBtn" class="btn btn-warm">View Orders</button></div></div><div id="historyList" class="mt-4"></div></div>
+        </div>
+
+        <!-- STATISTICS TAB -->
+        <div class="tab-pane fade" id="stats">
+            <div class="row" id="statsCards"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ---------- GLOBAL STATE ----------
+    let products = [
+        { id: 1, name: 'Royal Wedding Cake', price: 299.99, stock: 8, image: '🎂' },
+        { id: 2, name: 'Rainbow Birthday', price: 89.99, stock: 12, image: '🌈' },
+        { id: 3, name: 'Gold Celebration', price: 159.99, stock: 5, image: '✨' },
+        { id: 4, name: 'Chocolate Fudge', price: 79.99, stock: 15, image: '🍫' }
+    ];
+    let cart = JSON.parse(localStorage.getItem('allinone_cart')) || [];
+    let orders = JSON.parse(localStorage.getItem('allinone_orders')) || [];
+
+    function saveAll() { localStorage.setItem('allinone_cart', JSON.stringify(cart)); localStorage.setItem('allinone_orders', JSON.stringify(orders)); localStorage.setItem('allinone_products', JSON.stringify(products)); }
+
+    // Helper
+    function getCartSummary() {
+        let subtotal = cart.reduce((s,i)=>s+(i.price*i.qty),0);
+        let tax = subtotal*0.08, shipping = subtotal>=50?0:5.99;
+        return { subtotal, tax, shipping, total: subtotal+tax+shipping, count: cart.reduce((s,i)=>s+i.qty,0) };
+    }
+
+    // Render shop
+    function renderProducts() {
+        let html = '';
+        products.forEach(p => {
+            html += `<div class="col-md-3 mb-3"><div class="product-tile"><div class="fs-1">${p.image}</div><h6>${p.name}</h6><div>$${p.price}</div><small>Stock: ${p.stock}</small><br><button class="btn btn-sm btn-warm mt-2" onclick="addToCart(${p.id})">Add to Cart</button></div></div>`;
+        });
+        document.getElementById('productList').innerHTML = html;
+    }
+    function renderCart() {
+        if(cart.length===0) { document.getElementById('cartItemsList').innerHTML = '<p>Empty</p>'; document.getElementById('cartSummary').innerHTML = ''; document.getElementById('checkoutBtn').disabled = true; return; }
+        let itemsHtml = cart.map(i => `<div class="d-flex justify-content-between align-items-center mb-2"><span>${i.name} x${i.qty}</span><span>$${(i.price*i.qty).toFixed(2)}</span><button class="btn btn-sm btn-link text-danger" onclick="removeFromCart(${i.id})">✖</button></div>`).join('');
+        let sum = getCartSummary();
+        document.getElementById('cartItemsList').innerHTML = itemsHtml;
+        document.getElementById('cartSummary').innerHTML = `<div class="d-flex justify-content-between"><span>Subtotal:</span><span>$${sum.subtotal.toFixed(2)}</span></div><div class="d-flex justify-content-between"><span>Shipping:</span><span>$${sum.shipping.toFixed(2)}</span></div><div class="d-flex justify-content-between fw-bold"><span>Total:</span><span>$${sum.total.toFixed(2)}</span></div>`;
+        document.getElementById('checkoutBtn').disabled = false;
+    }
+    window.addToCart = (id) => {
+        let product = products.find(p=>p.id===id);
+        if(!product || product.stock<=0) { alert('Out of stock'); return; }
+        let existing = cart.find(i=>i.id===id);
+        if(existing) { if(product.stock <= existing.qty) { alert('Not enough stock'); return; } existing.qty++; }
+        else cart.push({ id, name: product.name, price: product.price, qty: 1 });
+        saveAll(); renderCart(); renderProducts();
+    };
+    window.removeFromCart = (id) => { cart = cart.filter(i=>i.id!==id); saveAll(); renderCart(); renderProducts(); };
+
+    // Checkout (simulated)
+    document.getElementById('checkoutBtn')?.addEventListener('click', () => {
+        if(cart.length===0) return alert('Cart empty');
+        let summary = getCartSummary();
+        let orderNumber = 'ORD' + Date.now() + Math.floor(Math.random()*1000);
+        let newOrder = {
+            id: Date.now(),
+            order_number: orderNumber,
+            customer_email: prompt('Enter your email for tracking:', 'customer@example.com'),
+            customer_name: prompt('Your name:', 'Guest'),
+            items: [...cart],
+            total: summary.total,
+            status: 'pending',
+            date: new Date().toISOString(),
+            timeline: ['pending']
+        };
+        if(!newOrder.customer_email) return;
+        // reduce stock
+        cart.forEach(citem => { let prod = products.find(p=>p.id===citem.id); if(prod) prod.stock -= citem.qty; });
+        orders.unshift(newOrder);
+        cart = [];
+        saveAll();
+        renderCart(); renderProducts(); renderHistory(); renderStats();
+        alert(`Order ${orderNumber} placed! You can track it using your email.`);
+    });
+
+    // Tracking logic
+    document.getElementById('trackBtn')?.addEventListener('click', () => {
+        let num = document.getElementById('trackNum').value;
+        let email = document.getElementById('trackEmailAddr').value;
+        let order = orders.find(o=>o.order_number===num && o.customer_email===email);
+        let resultDiv = document.getElementById('trackResult');
+        if(!order) { resultDiv.innerHTML = '<div class="alert alert-danger">Order not found</div>'; return; }
+        let timelineHtml = `<div class="d-flex justify-content-between">${['pending','processing','shipped','delivered'].map(s => `<div class="text-center"><div class="timeline-icon ${order.timeline.includes(s)?'completed':''}"><i class="bi ${s==='delivered'?'bi-check-lg':'bi-clock'}"></i></div><small>${s}</small></div>`).join('')}</div>`;
+        resultDiv.innerHTML = `<div class="alert alert-success"><strong>${order.order_number}</strong><br>Status: ${order.status}<br>Total: $${order.total}<br>${timelineHtml}<button class="btn btn-sm btn-outline-primary mt-2" onclick="downloadInvoice('${order.id}')">Download Invoice</button></div>`;
+    });
+
+    // Order history
+    function renderHistory() {
+        let email = document.getElementById('historyEmail')?.value;
+        if(!email) return;
+        let filtered = orders.filter(o=>o.customer_email === email);
+        let html = filtered.length ? filtered.map(o=>`<div class="order-card border p-3 mb-2 rounded"><div><strong>${o.order_number}</strong> - $${o.total} <span class="badge bg-secondary">${o.status}</span></div><div>${o.items.map(i=>`${i.name} x${i.qty}`).join(', ')}</div><button class="btn btn-sm btn-outline-warm" onclick="viewOrderDetails('${o.id}')">Details</button> ${o.status!=='cancelled'?`<button class="btn btn-sm btn-outline-danger" onclick="cancelOrder('${o.id}')">Cancel</button>`:''}</div>`).join('') : '<p>No orders found</p>';
+        document.getElementById('historyList').innerHTML = html;
+    }
+    window.cancelOrder = (id) => {
+        let order = orders.find(o=>o.id==id);
+        if(order && confirm('Cancel order? Stock will be restored.')) {
+            order.items.forEach(item => { let prod = products.find(p=>p.id===item.id); if(prod) prod.stock += item.qty; });
+            order.status = 'cancelled';
+            saveAll(); renderProducts(); renderHistory(); renderStats();
+            alert('Order cancelled');
+        }
+    };
+    window.viewOrderDetails = (id) => {
+        let order = orders.find(o=>o.id==id);
+        alert(`Order ${order.order_number}\nStatus: ${order.status}\nItems: ${order.items.map(i=>`${i.name} x${i.qty}`).join(', ')}\nTotal: $${order.total}`);
+    };
+    window.downloadInvoice = (id) => {
+        let order = orders.find(o=>o.id==id);
+        if(!order) return;
+        let win = window.open();
+        win.document.write(`<html><head><title>Invoice ${order.order_number}</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"></head><body><div class="container mt-5"><h2>Lavos Bakery</h2><p>Invoice: ${order.order_number}</p><p>Customer: ${order.customer_name}</p><p>Items: ${order.items.map(i=>`${i.name} x${i.qty}`).join(', ')}</p><p>Total: $${order.total}</p><hr><p>Thank you!</p></div></body></html>`);
+        win.print();
+    };
+
+    // Statistics Dashboard
+    function renderStats() {
+        let statusCounts = { pending:0, processing:0, shipped:0, delivered:0, cancelled:0 };
+        orders.forEach(o => { if(statusCounts[o.status]!==undefined) statusCounts[o.status]++; });
+        let html = Object.entries(statusCounts).map(([k,v]) => `<div class="col-md-2 col-6 mb-3"><div class="card text-center p-3"><i class="bi ${k==='delivered'?'bi-check-circle-fill':k==='cancelled'?'bi-x-circle':'bi-clock'} fs-1"></i><h3>${v}</h3><p>${k.toUpperCase()}</p></div></div>`).join('');
+        document.getElementById('statsCards').innerHTML = html;
+    }
+
+    // Event listeners for tabs
+    document.getElementById('historyBtn')?.addEventListener('click', renderHistory);
+    document.getElementById('historyEmail')?.addEventListener('change', renderHistory);
+
+    // Initial render
+    renderProducts();
+    renderCart();
+    renderStats();
+    if(!localStorage.getItem('allinone_products')) saveAll();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

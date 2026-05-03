@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facebook Shop | Lavos Bakery</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        * { font-family: 'Segoe UI', system-ui; }
+        body { background: #f0f2f5; }
+        .fb-header { background: #1b1f23; color: white; padding: 12px 0; position: sticky; top: 0; z-index: 100; }
+        .search-bar { background: #3a3b3c; border-radius: 24px; padding: 8px 16px; display: flex; align-items: center; gap: 10px; }
+        .search-bar input { background: transparent; border: none; color: white; width: 100%; outline: none; }
+        .filter-chip { background: #e4e6eb; padding: 6px 16px; border-radius: 20px; cursor: pointer; display: inline-block; margin: 4px; }
+        .filter-chip.active { background: #1877f2; color: white; }
+        .product-card { background: white; border-radius: 12px; overflow: hidden; transition: 0.2s; cursor: pointer; height: 100%; }
+        .product-card:hover { transform: translateY(-4px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
+        .product-card img { height: 180px; object-fit: cover; width: 100%; }
+        .btn-primary { background: #1877f2; border: none; }
+        .toast-notification { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 12px 24px; border-radius: 30px; z-index: 2000; animation: fadeOut 2s; }
+        @keyframes fadeOut { 0%{opacity:1} 70%{opacity:1}100%{opacity:0} }
+        @media (max-width:768px){ .search-bar{flex:1} }
+    </style>
+</head>
+<body>
+<header class="fb-header">
+    <div class="container d-flex justify-content-between align-items-center">
+        <div><i class="bi bi-facebook fs-2" style="color:#1877f2;"></i> Lavos Bakery</div>
+        <div class="search-bar flex-grow-1 mx-3"><i class="bi bi-search"></i><input type="text" id="searchInput" placeholder="Search Facebook" onkeyup="performSearch()"></div>
+        <div><i class="bi bi-bell"></i></div>
+    </div>
+    <div class="container mt-2">
+        <span class="filter-chip" data-type="all" onclick="setFilter('all')">All</span>
+        <span class="filter-chip" data-type="page" onclick="setFilter('page')">Pages</span>
+        <span class="filter-chip" data-type="group" onclick="setFilter('group')">Groups</span>
+        <span class="filter-chip" data-type="event" onclick="setFilter('event')">Events</span>
+    </div>
+</header>
+<main class="container py-3" id="mainContent"></main>
+<script>
+    const STORAGE = { PRODUCTS: 'fb_products', EVENTS: 'fb_events', GROUPS: 'fb_groups' };
+    function init() {
+        if(!localStorage.getItem(STORAGE.PRODUCTS)) localStorage.setItem(STORAGE.PRODUCTS, JSON.stringify([
+            { id:1, name:'Royal Wedding Cake', price:299.99, image:'https://images.pexels.com/photos/1721934/pexels-photo-1721934.jpeg?w=300', category:'wedding' },
+            { id:2, name:'Rainbow Birthday Cake', price:89.99, image:'https://images.pexels.com/photos/291528/pexels-photo-291528.jpeg?w=300', category:'birthday' },
+			 { id:3, name:'Royal Wedding Cake', price:299.99, image:'./lavos-catering-system/main/uploads/a1.jpg w=300', category:'birthday' }
+        ]));
+        if(!localStorage.getItem(STORAGE.EVENTS)) localStorage.setItem(STORAGE.EVENTS, JSON.stringify([
+            { id:1, name:'Cake Tasting', date:'2025-01-15', location:'NYC' }
+        ]));
+        if(!localStorage.getItem(STORAGE.GROUPS)) localStorage.setItem(STORAGE.GROUPS, JSON.stringify([
+            { id:1, name:'Cake Lovers', members:2500 }
+        ]));
+    }
+    function showToast(msg){ const t=document.createElement('div'); t.className='toast-notification'; t.innerText=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),2000); }
+    function escapeHtml(s){ return s.replace(/[&<>]/g, m=> ({'&':'&amp;','<':'&lt;','>':'&gt;'})[m]); }
+    function formatPrice(p){ return '$'+p.toFixed(2); }
+    let filterType='all';
+    function setFilter(t){ filterType=t; document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active')); document.querySelector(`.filter-chip[data-type="${t}"]`).classList.add('active'); performSearch(); }
+    function performSearch(){ const q=document.getElementById('searchInput').value.toLowerCase(); let products=JSON.parse(localStorage.getItem(STORAGE.PRODUCTS)); let events=JSON.parse(localStorage.getItem(STORAGE.EVENTS)); let groups=JSON.parse(localStorage.getItem(STORAGE.GROUPS)); let results=[]; if(filterType==='all'||filterType==='page') results.push(...products.filter(p=>p.name.toLowerCase().includes(q)).map(p=>({type:'product',...p}))); if(filterType==='all'||filterType==='group') results.push(...groups.filter(g=>g.name.toLowerCase().includes(q)).map(g=>({type:'group',...g}))); if(filterType==='all'||filterType==='event') results.push(...events.filter(e=>e.name.toLowerCase().includes(q)).map(e=>({type:'event',...e}))); if(!q) renderHome(); else renderSearchResults(results,q); }
+    function renderHome(){ const products=JSON.parse(localStorage.getItem(STORAGE.PRODUCTS)).slice(0,4); const groups=JSON.parse(localStorage.getItem(STORAGE.GROUPS)).slice(0,2); const events=JSON.parse(localStorage.getItem(STORAGE.EVENTS)); document.getElementById('mainContent').innerHTML=`<div class="bg-primary text-white rounded p-3 mb-3">🎂 Wedding Season Sale! 20% off</div><h5>Featured Products</h5><div class="row g-3">${products.map(p=>`<div class="col-6 col-md-3"><div class="product-card" onclick="alert('View ${p.name}')"><img src="${p.image}" class="w-100"><div class="p-2"><h6>${escapeHtml(p.name)}</h6><div>${formatPrice(p.price)}</div><button class="btn btn-sm btn-primary w-100 mt-1" onclick="event.stopPropagation(); showToast('Added to cart')">Buy</button></div></div></div>`).join('')}</div><h5 class="mt-4">Groups</h5><div class="row g-3">${groups.map(g=>`<div class="col-6 col-md-3"><div class="card"><div class="card-body"><h6>${escapeHtml(g.name)}</h6><div>${g.members} members</div><button class="btn btn-sm btn-outline-primary mt-2">Join</button></div></div></div>`).join('')}</div><h5 class="mt-4">Upcoming Events</h5><div class="row g-3">${events.map(e=>`<div class="col-md-4"><div class="card"><div class="card-body"><h6>${escapeHtml(e.name)}</h6><div>${e.date} at ${e.location}</div><button class="btn btn-sm btn-primary mt-2">Interested</button></div></div></div>`).join('')}</div><div class="bg-light rounded p-2 mt-3"><i class="bi bi-shield-check text-success"></i> Page Transparency: Verified Business</div>`; }
+    function renderSearchResults(results,query){ if(results.length===0){ document.getElementById('mainContent').innerHTML=`<div class="text-center py-5"><i class="bi bi-search fs-1"></i><h6>No results for "${escapeHtml(query)}"</h6></div>`; return; } let html=`<h5>Results for "${escapeHtml(query)}"</h5>`; results.forEach(r=>{ if(r.type==='product') html+=`<div class="d-flex align-items-center gap-3 p-2 border-bottom"><img src="${r.image}" width="50" height="50" class="rounded"><div><strong>${escapeHtml(r.name)}</strong><div>${formatPrice(r.price)}</div></div></div>`; else if(r.type==='group') html+=`<div class="d-flex align-items-center gap-3 p-2 border-bottom"><i class="bi bi-people-fill fs-2"></i><div><strong>${escapeHtml(r.name)}</strong><div>${r.members} members</div></div></div>`; else if(r.type==='event') html+=`<div class="d-flex align-items-center gap-3 p-2 border-bottom"><i class="bi bi-calendar-event fs-2"></i><div><strong>${escapeHtml(r.name)}</strong><div>${r.date} at ${r.location}</div></div></div>`; });
+ document.getElementById('mainContent').innerHTML=html; }
+    init(); renderHome();
+
+</script>
+</body>
+</html>

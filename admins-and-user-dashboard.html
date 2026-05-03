@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lavos Bakery | Admin & User Dashboard (Fully Fixed)</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', system-ui; }
+        body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        
+        .sidebar { background: linear-gradient(180deg, #2c3e50 0%, #1a252f 100%); min-height: 100vh; transition: 0.3s; position: fixed; width: 280px; z-index: 1000; }
+        .sidebar .nav-link { color: #b9c3e6; border-radius: 12px; margin: 6px 12px; padding: 12px 18px; cursor: pointer; }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active { background: #d4a373; color: #1a1e2b; }
+        .sidebar .nav-link i { margin-right: 10px; }
+        .main-content { margin-left: 280px; transition: 0.3s; }
+        .navbar-custom { background: white; box-shadow: 0 2px 12px rgba(0,0,0,0.05); padding: 15px 25px; border-radius: 0 0 20px 20px; }
+        
+        .stat-card { background: white; border-radius: 28px; border: none; transition: 0.2s; box-shadow: 0 5px 15px rgba(0,0,0,0.05); padding: 20px; text-align: center; cursor: pointer; }
+        .stat-card:hover { transform: translateY(-4px); }
+        
+        .cake-card, .product-card { background: white; border-radius: 20px; overflow: hidden; transition: 0.3s; box-shadow: 0 5px 15px rgba(0,0,0,0.08); height: 100%; }
+        .cake-card:hover, .product-card:hover { transform: translateY(-8px); box-shadow: 0 15px 30px rgba(0,0,0,0.15); }
+        .cake-card img, .product-card img { height: 200px; object-fit: cover; width: 100%; }
+        
+        .table-container { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); overflow-x: auto; }
+        .role-selector { background: white; border-radius: 20px; padding: 50px; text-align: center; cursor: pointer; transition: 0.3s; }
+        .role-selector:hover { transform: translateY(-10px); box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
+        .role-selector.admin { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .role-selector.user { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; }
+        
+        .btn-warm { background: #d4a373; border: none; color: #2c3e50; font-weight: 600; border-radius: 40px; padding: 10px 25px; transition: all 0.3s; }
+        .btn-warm:hover { background: #c4956a; transform: translateY(-2px); }
+        
+        .mobile-toggle { display: none; cursor: pointer; font-size: 1.8rem; }
+        @media (max-width: 768px) { .sidebar { left: -280px; } .sidebar.show { left: 0; } .main-content { margin-left: 0; } .mobile-toggle { display: block; } }
+        
+        .badge-status-pending { background: #ffc107; color: #000; }
+        .badge-status-processing { background: #17a2b8; color: #fff; }
+        .badge-status-shipped { background: #6f42c1; color: #fff; }
+        .badge-status-delivered { background: #28a745; color: #fff; }
+        .badge-status-cancelled { background: #dc3545; color: #fff; }
+        
+        .back-to-top { position: fixed; bottom: 30px; right: 30px; width: 45px; height: 45px; background: #d4a373; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; visibility: hidden; transition: 0.3s; z-index: 1000; }
+        .back-to-top.show { opacity: 1; visibility: visible; }
+        
+        .toast-notification { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 12px 24px; border-radius: 30px; font-size: 14px; z-index: 2000; animation: fadeInOut 2.5s ease; }
+        @keyframes fadeInOut { 0% { opacity: 0; transform: translateX(-50%) translateY(20px); } 15% { opacity: 1; transform: translateX(-50%) translateY(0); } 85% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-20px); } }
+    </style>
+</head>
+<body>
+
+<!-- Fixed: Modals are placed OUTSIDE the dynamic layout, rendered only once -->
+<div id="app"></div>
+
+<!-- Order Modal -->
+<div class="modal fade" id="orderModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warm text-white"><h5>Place Order</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="orderProductId">
+                <div class="mb-2"><label>Product</label><input type="text" id="orderProductName" class="form-control" readonly></div>
+                <div class="mb-2"><label>Price</label><input type="text" id="orderProductPrice" class="form-control" readonly></div>
+                <div class="mb-2"><label>Quantity</label><input type="number" id="orderQuantity" class="form-control" value="1" min="1" required></div>
+                <div class="mb-2"><label>Your Name</label><input type="text" id="orderCustomerName" class="form-control" required></div>
+                <div class="mb-2"><label>Email</label><input type="email" id="orderCustomerEmail" class="form-control" required></div>
+                <div class="mb-2"><label>Phone</label><input type="text" id="orderCustomerPhone" class="form-control" placeholder="Optional"></div>
+                <div class="mb-2"><label>Payment Method</label>
+                    <select id="orderPaymentMethod" class="form-select">
+                        <option>Credit Card</option><option>PayPal</option><option>Bank Transfer</option><option>Cash on Delivery</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-warm" id="confirmOrderBtn">Place Order</button></div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Product Modal -->
+<div class="modal fade" id="addProductModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white"><h5>Add New Product</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <form id="addProductForm">
+                    <input type="text" name="name" class="form-control mb-2" placeholder="Product Name" required>
+                    <textarea name="description" class="form-control mb-2" rows="2" placeholder="Description"></textarea>
+                    <input type="number" step="0.01" name="price" class="form-control mb-2" placeholder="Price" required>
+                    <input type="number" name="stock" class="form-control mb-2" placeholder="Stock" required>
+                    <input type="url" name="image_url" class="form-control mb-2" placeholder="Image URL" value="https://images.pexels.com/photos/1721934/pexels-photo-1721934.jpeg?w=300">
+                    <select name="category" class="form-control">
+                        <option value="wedding">Wedding Cake</option>
+                        <option value="birthday">Birthday Cake</option>
+                        <option value="celebration">Celebration Cake</option>
+                    </select>
+                </form>
+            </div>
+            <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" id="confirmAddProductBtn">Add Product</button></div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Product Modal -->
+<div class="modal fade" id="editProductModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-white"><h5>Edit Product</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="editProductId">
+                <input type="text" id="editProductName" class="form-control mb-2" placeholder="Product Name" required>
+                <textarea id="editProductDesc" class="form-control mb-2" rows="2" placeholder="Description"></textarea>
+                <input type="number" step="0.01" id="editProductPrice" class="form-control mb-2" placeholder="Price" required>
+                <input type="number" id="editProductStock" class="form-control mb-2" placeholder="Stock" required>
+                <input type="url" id="editProductImage" class="form-control mb-2" placeholder="Image URL">
+                <select id="editProductCategory" class="form-control">
+                    <option value="wedding">Wedding Cake</option>
+                    <option value="birthday">Birthday Cake</option>
+                    <option value="celebration">Celebration Cake</option>
+                </select>
+            </div>
+            <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-warning" id="confirmUpdateProductBtn">Update Product</button></div>
+        </div>
+    </div>
+</div>
+
+<div class="back-to-top" id="backToTopBtn"><i class="bi bi-arrow-up"></i></div>
+
+<script>
+    // ============================================================
+    // LAVOS BAKERY - FULLY FIXED ADMIN & USER DASHBOARD
+    // Orders & Transactions tables now display all fields correctly
+    // Modals are static and event handlers use proper listeners
+    // ============================================================
+    
+    const STORAGE_KEYS = {
+        CURRENT_ROLE: 'lavos_dashboard_role',
+        PRODUCTS: 'lavos_dashboard_products',
+        ORDERS: 'lavos_dashboard_orders',
+        TRANSACTIONS: 'lavos_dashboard_transactions',
+        INQUIRIES: 'lavos_dashboard_inquiries',
+        USERS: 'lavos_dashboard_users'
+    };
+    
+    let currentRole = localStorage.getItem(STORAGE_KEYS.CURRENT_ROLE) || null;
+    let currentPage = 'dashboard';
+    
+    // ---------- Helper Functions ----------
+    const generateId = () => Date.now() + Math.floor(Math.random() * 10000);
+    const generateOrderNumber = () => 'ORD' + new Date().toISOString().slice(0,10).replace(/-/g,'') + Math.floor(Math.random()*10000);
+    const generateTransactionId = () => 'TXN' + Date.now() + Math.floor(Math.random()*100000);
+    const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : 'Never';
+    const formatDateTime = (d) => d ? new Date(d).toLocaleString() : 'Never';
+    const formatCurrency = (a) => '$' + parseFloat(a).toFixed(2);
+    const escapeHtml = (s) => s ? s.replace(/[&<>]/g, function(m){ if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}) : '';
+    const isAdmin = () => currentRole === 'admin';
+    const showMessage = (msg, type) => { const t=document.createElement('div'); t.className='toast-notification'; t.innerHTML=`<i class="bi bi-${type==='success'?'check-circle':'exclamation-triangle'}"></i> ${msg}`; document.body.appendChild(t); setTimeout(()=>t.remove(),2500); };
+    
+    // ---------- Data Access ----------
+    const getProducts = () => JSON.parse(localStorage.getItem(STORAGE_KEYS.PRODUCTS));
+    const getOrders = () => JSON.parse(localStorage.getItem(STORAGE_KEYS.ORDERS));
+    const getTransactions = () => JSON.parse(localStorage.getItem(STORAGE_KEYS.TRANSACTIONS));
+    const getInquiries = () => JSON.parse(localStorage.getItem(STORAGE_KEYS.INQUIRIES));
+    const getUsers = () => JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS));
+    
+    const saveProducts = (products) => localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
+    const saveOrders = (orders) => localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
+    const saveTransactions = (transactions) => localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
+    const saveInquiries = (inquiries) => localStorage.setItem(STORAGE_KEYS.INQUIRIES, JSON.stringify(inquiries));
+    const saveUsers = (users) => localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    
+    // ---------- Business Logic ----------
+    const addProduct = (p) => { const products = getProducts(); products.push({ id: generateId(), ...p }); saveProducts(products); return true; };
+    const updateProduct = (id, data) => { const products = getProducts(); const idx = products.findIndex(p=>p.id===id); if(idx!==-1){ products[idx]={...products[idx],...data}; saveProducts(products); return true; } return false; };
+    const deleteProduct = (id) => { let products = getProducts(); products = products.filter(p=>p.id!==id); saveProducts(products); return true; };
+    
+    const createOrder = (data) => {
+        const products = getProducts();
+        const product = products.find(p=>p.id===data.product_id);
+        if(!product) return {success:false, error:'Product not found'};
+        if(product.stock < data.quantity) return {success:false, error:'Insufficient stock'};
+        const total = product.price * data.quantity;
+        const orderNumber = generateOrderNumber();
+        const isInstant = !['Cash on Delivery', 'COD'].includes(data.payment_method);
+        const paymentStatus = isInstant ? 'paid' : 'pending';
+        const transactionStatus = isInstant ? 'completed' : 'pending';
+        
+        const order = {
+            id: generateId(),
+            order_number: orderNumber,
+            customer_name: data.customer_name,
+            customer_email: data.customer_email,
+            customer_phone: data.customer_phone || '',
+            product_name: product.name,
+            quantity: data.quantity,
+            unit_price: product.price,
+            total: total,
+            status: 'pending',
+            payment_status: paymentStatus,
+            payment_method: data.payment_method,
+            order_date: new Date().toISOString()
+        };
+        
+        product.stock -= data.quantity;
+        saveProducts(products);
+        
+        const orders = getOrders();
+        orders.push(order);
+        saveOrders(orders);
+        
+        const transactions = getTransactions();
+        transactions.push({
+            id: generateId(),
+            transaction_id: generateTransactionId(),
+            order_id: order.id,
+            amount: total,
+            payment_method: data.payment_method,
+            status: transactionStatus,
+            transaction_date: new Date().toISOString()
+        });
+        saveTransactions(transactions);
+        
+        return {success:true, order_number: orderNumber, total: total};
+    };
+    
+    const cancelOrder = (orderId) => {
+        const orders = getOrders();
+        const idx = orders.findIndex(o=>o.id===orderId);
+        if(idx === -1) return false;
+        const order = orders[idx];
+        if(order.status === 'cancelled' || order.status === 'delivered') return false;
+        
+        const products = getProducts();
+        const product = products.find(p=>p.name === order.product_name);
+        if(product) { product.stock += order.quantity; saveProducts(products); }
+        
+        order.status = 'cancelled';
+        saveOrders(orders);
+        
+        const transactions = getTransactions();
+        const txIdx = transactions.findIndex(t => t.order_id === orderId);
+        if(txIdx !== -1 && transactions[txIdx].status !== 'refunded') {
+            transactions[txIdx].status = 'refunded';
+            saveTransactions(transactions);
+        }
+        return true;
+    };
+    
+    const updateOrderStatus = (orderId, newStatus) => {
+        const orders = getOrders();
+        const idx = orders.findIndex(o=>o.id===orderId);
+        if(idx === -1) return false;
+        const order = orders[idx];
+        if(order.status === 'cancelled' && newStatus !== 'cancelled') return false;
+        
+        order.status = newStatus;
+        saveOrders(orders);
+        
+        if(newStatus === 'delivered' && order.payment_method === 'Cash on Delivery' && order.payment_status !== 'paid') {
+            order.payment_status = 'paid';
+            saveOrders(orders);
+            const transactions = getTransactions();
+            const txIdx = transactions.findIndex(t => t.order_id === orderId);
+            if(txIdx !== -1 && transactions[txIdx].status !== 'completed') {
+                transactions[txIdx].status = 'completed';
+                saveTransactions(transactions);
+            }
+        }
+        if(newStatus === 'cancelled') cancelOrder(orderId);
+        return true;
+    };
+    
+    const updateTransactionStatus = (txId, status) => {
+        const tx = getTransactions();
+        const idx = tx.findIndex(t=>t.transaction_id===txId);
+        if(idx!==-1){ tx[idx].status=status; saveTransactions(tx); return true; }
+        return false;
+    };
+    
+    const getTransactionStats = () => {
+        const tx = getTransactions();
+        const completed = tx.filter(t=>t.status==='completed');
+        const total = completed.reduce((s,t)=>s+t.amount,0);
+        return { total_count: tx.length, total_amount: total, avg_amount: tx.length>0?total/tx.length:0, completed_count: completed.length };
+    };
+    
+    const submitInquiry = (data) => { const inquiries = getInquiries(); inquiries.push({ id: generateId(), ...data, status: 'unread', admin_response: null, created_at: new Date().toISOString() }); saveInquiries(inquiries); return true; };
+    const replyToInquiry = (inquiryId, response) => { const inquiries = getInquiries(); const idx = inquiries.findIndex(i=>i.id===inquiryId); if(idx!==-1){ inquiries[idx].admin_response=response; inquiries[idx].status='replied'; saveInquiries(inquiries); return true; } return false; };
+    const updateUserStatus = (userId, isActive) => { const users = getUsers(); const idx = users.findIndex(u=>u.id===userId); if(idx!==-1){ users[idx].is_active = isActive; saveUsers(users); return true; } return false; };
+    const updateUserRole = (userId, role) => { const users = getUsers(); const idx = users.findIndex(u=>u.id===userId); if(idx!==-1){ users[idx].role = role; saveUsers(users); return true; } return false; };
+    
+    const getStats = () => ({ total_products: getProducts().length, total_orders: getOrders().length, total_revenue: getTransactionStats().total_amount, total_inquiries: getInquiries().length, total_users: getUsers().length, pending_orders: getOrders().filter(o=>o.status==='pending').length, completed_orders: getOrders().filter(o=>o.status==='delivered').length });
+    
+    // ---------- Initial Data ----------
+    const initializeData = () => {
+        if (!localStorage.getItem(STORAGE_KEYS.USERS)) {
+            saveUsers([
+                { id: 1, username: 'Admin', email: 'admin@lavosbakery.com', role: 'admin', full_name: 'System Administrator', phone: '+1234567890', is_active: true, last_login: new Date().toISOString(), created_at: '2024-01-15T10:30:00.000Z' },
+                { id: 2, username: 'john.doe', email: 'john.doe@example.com', role: 'user', full_name: 'John Doe', phone: '+11234567890', is_active: true, last_login: new Date().toISOString(), created_at: '2024-02-20T14:20:00.000Z' },
+                { id: 3, username: 'jane_smith', email: 'jane.smith@yahoo.com', role: 'user', full_name: 'Jane Smith', phone: '+19876543210', is_active: true, last_login: new Date(Date.now() - 86400000).toISOString(), created_at: '2024-03-10T09:15:00.000Z' },
+                { id: 4, username: 'michael', email: 'michael.brown@gmail.com', role: 'user', full_name: 'Michael Brown', phone: '+14567890123', is_active: true, last_login: null, created_at: '2024-03-15T11:00:00.000Z' },
+                { id: 5, username: 'sarah.connor', email: 'sarah.connor@gmail.com', role: 'user', full_name: 'Sarah Connor', phone: '+15678901234', is_active: false, last_login: null, created_at: '2024-03-20T16:30:00.000Z' }
+            ]);
+        }
+        if (!localStorage.getItem(STORAGE_KEYS.PRODUCTS)) {
+            saveProducts([
+                { id: 1, name: 'Royal Wedding Cake', description: '3-tier white wedding cake with gold leaf decorations', price: 299.99, stock: 10, image_url: 'https://images.pexels.com/photos/1721934/pexels-photo-1721934.jpeg?w=300', category: 'wedding', sales_count: 45, rating_avg: 4.9 },
+                { id: 2, name: 'Elegant Pearl Wedding Cake', description: 'Pearl decorated wedding cake with buttercream', price: 349.99, stock: 8, image_url: 'https://images.pexels.com/photos/1854652/pexels-photo-1854652.jpeg?w=300', category: 'wedding', sales_count: 32, rating_avg: 4.8 },
+                { id: 3, name: 'Rainbow Birthday Cake', description: 'Colorful layers with buttercream frosting', price: 89.99, stock: 15, image_url: 'https://images.pexels.com/photos/291528/pexels-photo-291528.jpeg?w=300', category: 'birthday', sales_count: 128, rating_avg: 4.7 },
+                { id: 4, name: 'Chocolate Fudge Cake', description: 'Rich chocolate layers with ganache', price: 79.99, stock: 20, image_url: 'https://images.pexels.com/photos/1854651/pexels-photo-1854651.jpeg?w=300', category: 'birthday', sales_count: 95, rating_avg: 4.8 },
+                { id: 5, name: 'Gold Celebration Cake', description: '24k edible gold drip cake', price: 159.99, stock: 7, image_url: 'https://images.pexels.com/photos/746016/pexels-photo-746016.jpeg?w=300', category: 'celebration', sales_count: 67, rating_avg: 4.9 },
+                { id: 6, name: 'Anniversary Rose Cake', description: 'Red velvet with cream cheese roses', price: 129.99, stock: 5, image_url: 'https://images.pexels.com/photos/1126359/pexels-photo-1126359.jpeg?w=300', category: 'celebration', sales_count: 54, rating_avg: 4.8 },
+                { id: 7, name: 'Kids Birthday Cake', description: 'Cartoon themed chocolate cake', price: 69.99, stock: 12, image_url: 'https://images.pexels.com/photos/2067396/pexels-photo-2067396.jpeg?w=300', category: 'birthday', sales_count: 89, rating_avg: 4.6 }
+            ]);
+        }
+        if (!localStorage.getItem(STORAGE_KEYS.ORDERS)) {
+            saveOrders([
+                { id: 1, order_number: 'ORD202412150001', customer_name: 'John Doe', customer_email: 'john@example.com', customer_phone: '+11234567890', product_name: 'Royal Wedding Cake', quantity: 1, total: 299.99, status: 'delivered', payment_status: 'paid', payment_method: 'Credit Card', order_date: '2024-12-15T10:30:00.000Z' },
+                { id: 2, order_number: 'ORD202412160002', customer_name: 'Jane Smith', customer_email: 'jane@example.com', customer_phone: '+19876543210', product_name: 'Rainbow Birthday Cake', quantity: 2, total: 179.98, status: 'shipped', payment_status: 'paid', payment_method: 'PayPal', order_date: '2024-12-16T14:20:00.000Z' },
+                { id: 3, order_number: 'ORD202412170003', customer_name: 'Michael Brown', customer_email: 'michael@example.com', customer_phone: '+14567890123', product_name: 'Chocolate Fudge Cake', quantity: 1, total: 79.99, status: 'pending', payment_status: 'pending', payment_method: 'Bank Transfer', order_date: '2024-12-17T09:15:00.000Z' },
+                { id: 4, order_number: 'ORD202412180004', customer_name: 'Sarah Connor', customer_email: 'sarah@example.com', customer_phone: '+15678901234', product_name: 'Gold Celebration Cake', quantity: 1, total: 159.99, status: 'processing', payment_status: 'paid', payment_method: 'Credit Card', order_date: '2024-12-18T11:45:00.000Z' }
+            ]);
+        }
+        if (!localStorage.getItem(STORAGE_KEYS.TRANSACTIONS)) {
+            saveTransactions([
+                { id: 1, transaction_id: 'TXN1734567890123', order_id: 1, amount: 299.99, payment_method: 'Credit Card', status: 'completed', transaction_date: '2024-12-15T10:35:00.000Z' },
+                { id: 2, transaction_id: 'TXN1734567890456', order_id: 2, amount: 179.98, payment_method: 'PayPal', status: 'completed', transaction_date: '2024-12-16T14:25:00.000Z' },
+                { id: 3, transaction_id: 'TXN1734567890789', order_id: 3, amount: 79.99, payment_method: 'Bank Transfer', status: 'pending', transaction_date: '2024-12-17T09:20:00.000Z' },
+                { id: 4, transaction_id: 'TXN1734567891011', order_id: 4, amount: 159.99, payment_method: 'Credit Card', status: 'completed', transaction_date: '2024-12-18T11:50:00.000Z' }
+            ]);
+        }
+        if (!localStorage.getItem(STORAGE_KEYS.INQUIRIES)) {
+            saveInquiries([
+                { id: 1, customer_name: 'John Doe', customer_email: 'john@example.com', subject: 'Wedding Cake Customization', message: 'Can I add fresh flowers?', status: 'replied', admin_response: 'Yes, for $50 extra.', created_at: '2024-12-15T10:30:00.000Z' },
+                { id: 2, customer_name: 'Jane Smith', customer_email: 'jane@example.com', subject: 'Delivery Question', message: 'When will my order arrive?', status: 'read', admin_response: null, created_at: '2024-12-16T14:20:00.000Z' },
+                { id: 3, customer_name: 'Guest User', customer_email: 'guest@example.com', subject: 'Gluten Free', message: 'Do you have gluten free cakes?', status: 'unread', admin_response: null, created_at: '2024-12-17T09:15:00.000Z' }
+            ]);
+        }
+    };
+    
+    // ---------- UI Rendering Functions ----------
+    const renderRoleSelection = () => `
+        <div class="container" style="min-height:100vh; display:flex; align-items:center; justify-content:center;">
+            <div class="row g-4 w-100">
+                <div class="col-md-6"><div class="role-selector admin py-5" onclick="selectRole('admin')"><i class="bi bi-shield-lock fs-1 mb-3"></i><h2>Admin Dashboard</h2><p>Full access to manage products, orders, users, and inquiries</p><hr><small><i class="bi bi-check-circle"></i> Add/Edit/Delete Products</small><br><small><i class="bi bi-check-circle"></i> Update Order Status</small><br><small><i class="bi bi-check-circle"></i> Manage Users</small><br><small><i class="bi bi-check-circle"></i> Reply to Inquiries</small></div></div>
+                <div class="col-md-6"><div class="role-selector user py-5" onclick="selectRole('user')"><i class="bi bi-person-circle fs-1 mb-3"></i><h2>User Dashboard</h2><p>Browse cakes, place orders, and submit inquiries</p><hr><small><i class="bi bi-check-circle"></i> View Cake Gallery</small><br><small><i class="bi bi-check-circle"></i> Place Orders</small><br><small><i class="bi bi-check-circle"></i> Track Orders</small><br><small><i class="bi bi-check-circle"></i> Submit Inquiries</small></div></div>
+            </div>
+        </div>
+    `;
+    
+    const renderDashboard = () => {
+        const s = getStats();
+        const a = isAdmin();
+        return `
+            <div class="row g-4 mb-5">
+                <div class="col-md-3 col-6"><div class="stat-card" onclick="renderProductsPage()"><i class="bi bi-boxes fs-2 text-primary"></i><h2>${s.total_products}</h2><span>Products</span></div></div>
+                <div class="col-md-3 col-6"><div class="stat-card" onclick="renderOrdersPage()"><i class="bi bi-cart fs-2 text-success"></i><h2>${s.total_orders}</h2><span>Orders</span></div></div>
+                ${a?`<div class="col-md-3 col-6"><div class="stat-card" onclick="renderTransactionsPage()"><i class="bi bi-credit-card fs-2 text-warning"></i><h2>${formatCurrency(s.total_revenue)}</h2><span>Revenue</span></div></div>
+                <div class="col-md-3 col-6"><div class="stat-card" onclick="renderUsersPage()"><i class="bi bi-people fs-2 text-info"></i><h2>${s.total_users}</h2><span>Users</span></div></div>`:`
+                <div class="col-md-3 col-6"><div class="stat-card" onclick="renderOrdersPage()"><i class="bi bi-credit-card fs-2 text-info"></i><h2>${s.total_orders}</h2><span>My Orders</span></div></div>`}
+            </div>
+            <div class="row g-4 mb-5">
+                <div class="col-md-4"><div class="stat-card"><i class="bi bi-hourglass-split fs-2 text-warning"></i><h2>${s.pending_orders}</h2><span>Pending Orders</span></div></div>
+                <div class="col-md-4"><div class="stat-card"><i class="bi bi-check-circle fs-2 text-success"></i><h2>${s.completed_orders}</h2><span>Completed Orders</span></div></div>
+                <div class="col-md-4"><div class="stat-card"><i class="bi bi-envelope fs-2 text-danger"></i><h2>${s.total_inquiries}</h2><span>Inquiries</span></div></div>
+            </div>
+            <div class="card shadow-sm"><div class="card-body"><h5><i class="bi bi-cake2"></i> Welcome to Lavos Bakery ${a?'Admin':'User'} Dashboard</h5><p>Manage products, track orders, view transactions, and respond to customer inquiries.</p><div class="alert alert-info"><i class="bi bi-info-circle"></i> You are in <strong>${a?'Admin Mode':'User Mode'}</strong>. <a href="#" onclick="switchRole(); return false;" class="alert-link">Click here to switch role</a>.</div></div></div>
+        `;
+    };
+    
+    const renderCakeGallery = () => {
+        const p=getProducts();
+        const wedding=p.filter(p=>p.category==='wedding'), birthday=p.filter(p=>p.category==='birthday'), celebration=p.filter(p=>p.category==='celebration');
+        const renderRow=(cakes,title,icon,color)=>cakes.length?`<h4 class="mt-4"><i class="bi ${icon} ${color}"></i> ${title}</h4><div class="row g-4 mb-5">${cakes.map(c=>`<div class="col-md-4 col-lg-3"><div class="cake-card"><img src="${c.image_url}"><div class="p-3"><h6>${escapeHtml(c.name)}</h6><p class="small text-muted">${c.description.substring(0,60)}...</p><div class="d-flex justify-content-between align-items-center"><span class="fw-bold text-success">${formatCurrency(c.price)}</span><button class="btn btn-sm btn-warm" onclick="showOrderModal(${c.id},'${escapeHtml(c.name)}',${c.price})">Order Now</button></div></div></div></div>`).join('')}</div>`:'';
+        return `<h3><i class="bi bi-cake2 text-warning"></i> Premium Cake Collection</h3>${renderRow(wedding,'Wedding Cakes','bi-gem','text-primary')}${renderRow(birthday,'Birthday Cakes','bi-gift','text-info')}${renderRow(celebration,'Celebration Cakes','bi-star-fill','text-warning')}`;
+    };
+    
+    const renderProducts = () => {
+        const a=isAdmin();
+        const p=getProducts();
+        return `<div class="d-flex justify-content-between mb-3"><h3><i class="bi bi-box-seam"></i> Product Catalog</h3>${a?'<button class="btn btn-primary" onclick="showAddProductModal()">+ Add Product</button>':''}</div>
+        <div class="row g-4">${p.map(p=>`<div class="col-md-4 col-lg-3"><div class="product-card"><img src="${p.image_url}" style="height:150px;object-fit:cover;"><div class="p-3"><h6>${escapeHtml(p.name)}</h6><p class="small text-muted">${p.description.substring(0,50)}...</p><div class="d-flex justify-content-between"><h6 class="text-primary">${formatCurrency(p.price)}</h6><span class="badge bg-secondary">Stock: ${p.stock}</span></div>${a?`<div class="mt-2 d-flex gap-2"><button class="btn btn-sm btn-outline-secondary" onclick="showEditProductModal(${p.id})">Edit</button><button class="btn btn-sm btn-outline-danger" onclick="deleteProductHandler(${p.id})">Delete</button></div>`:`<div class="mt-2"><button class="btn btn-sm btn-warm w-100" onclick="showOrderModal(${p.id},'${escapeHtml(p.name)}',${p.price})">Order Now</button></div>`}</div></div></div>`).join('')}</div>`;
+    };
+    
+    const renderOrders = () => {
+        const a=isAdmin();
+        const o=getOrders();
+        return `<h3><i class="bi bi-cart3"></i> ${a?'Order Management':'My Orders'}</h3>
+        <div class="table-container"><table class="table table-hover"><thead class="table-light"><tr><th>Order #</th><th>Customer</th><th>Email</th><th>Product</th><th>Qty</th><th>Total</th><th>Status</th><th>Payment</th><th>Method</th><th>Date</th>${a?'<th>Action</th>':'<th>Cancel</th>'}</tr></thead>
+        <tbody>${o.map(o=>`<tr><td><strong>${escapeHtml(o.order_number)}</strong></td><td>${escapeHtml(o.customer_name)}</td><td>${escapeHtml(o.customer_email)}</td><td>${escapeHtml(o.product_name)}</td><td>${o.quantity}</td><td>${formatCurrency(o.total)}</td><td><span class="badge badge-status-${o.status}">${o.status}</span></td><td><span class="badge ${o.payment_status==='paid'?'bg-success':'bg-secondary'}">${o.payment_status}</span></td><td><span class="badge bg-info">${escapeHtml(o.payment_method)}</span></td><td>${formatDate(o.order_date)}</td>
+        <td>${a?`<select id="status_${o.id}" class="form-select form-select-sm d-inline w-auto" style="width:110px"><option value="pending" ${o.status==='pending'?'selected':''}>Pending</option><option value="processing" ${o.status==='processing'?'selected':''}>Processing</option><option value="shipped" ${o.status==='shipped'?'selected':''}>Shipped</option><option value="delivered" ${o.status==='delivered'?'selected':''}>Delivered</option><option value="cancelled" ${o.status==='cancelled'?'selected':''}>Cancelled</option></select><button class="btn btn-sm btn-primary mt-1" onclick="updateOrderStatusHandler(${o.id})">Update</button>`:(o.status!=='cancelled'&&o.status!=='delivered'?`<button class="btn btn-sm btn-danger" onclick="cancelOrderHandler(${o.id})">Cancel</button>`:'—')}</td></tr>`).join('')}
+        ${o.length===0?'<tr><td colspan="11" class="text-center">No orders found</td></tr>':''}</tbody></table></div>`;
+    };
+    
+    const renderTransactions = () => {
+        const a=isAdmin();
+        const tx=getTransactions();
+        const s=getTransactionStats();
+        return `<h3><i class="bi bi-credit-card"></i> ${a?'All Transactions':'My Transactions'}</h3>
+        ${a?`<div class="row g-3 mb-4"><div class="col-md-3 col-6"><div class="stat-card p-2 text-center"><small>Total Revenue</small><h5 class="text-success">${formatCurrency(s.total_amount)}</h5></div></div><div class="col-md-3 col-6"><div class="stat-card p-2 text-center"><small>Transactions</small><h5>${s.total_count}</h5></div></div><div class="col-md-3 col-6"><div class="stat-card p-2 text-center"><small>Completed</small><h5>${s.completed_count}</h5></div></div><div class="col-md-3 col-6"><div class="stat-card p-2 text-center"><small>Average</small><h5>${formatCurrency(s.avg_amount)}</h5></div></div></div>`:''}
+        <div class="table-container"><table class="table table-hover"><thead class="table-light"><tr><th>Transaction ID</th><th>Order ID</th><th>Amount</th><th>Method</th><th>Status</th><th>Date</th>${a?'<th>Action</th>':''}</tr></thead>
+        <tbody>${tx.map(t=>`<tr><td><code>${escapeHtml(t.transaction_id)}</code></td><td>${t.order_id || 'N/A'}</td><td class="fw-bold text-success">${formatCurrency(t.amount)}</td><td>${escapeHtml(t.payment_method)}</td><td><span class="badge ${t.status==='completed'?'bg-success':(t.status==='pending'?'bg-warning':(t.status==='refunded'?'bg-danger':'bg-secondary'))}">${t.status}</span></td><td>${formatDate(t.transaction_date)}</td>
+        ${a?`<td><select id="tx_status_${t.transaction_id}" class="form-select form-select-sm d-inline w-auto" style="width:100px"><option ${t.status==='pending'?'selected':''}>pending</option><option ${t.status==='completed'?'selected':''}>completed</option><option ${t.status==='failed'?'selected':''}>failed</option><option ${t.status==='refunded'?'selected':''}>refunded</option></select><button class="btn btn-sm btn-primary mt-1" onclick="updateTransactionStatusHandler('${t.transaction_id}')">Update</button></td>`:''}</tr>`).join('')}
+        ${tx.length===0?'<tr><td colspan="6" class="text-center">No transactions found</td></tr>':''}</tbody></table></div>`;
+    };
+    
+    const renderUsers = () => {
+        if(!isAdmin()) return renderDashboard();
+        const users = getUsers();
+        const stats = { total: users.length, active: users.filter(u=>u.is_active).length, admins: users.filter(u=>u.role==='admin').length };
+        return `<h3><i class="bi bi-people"></i> User Management</h3><div class="row g-3 mb-4"><div class="col-md-4"><div class="stat-card p-2 text-center"><small>Total Users</small><h5>${stats.total}</h5></div></div><div class="col-md-4"><div class="stat-card p-2 text-center"><small>Active Users</small><h5>${stats.active}</h5></div></div><div class="col-md-4"><div class="stat-card p-2 text-center"><small>Administrators</small><h5>${stats.admins}</h5></div></div></div>
+        <div class="table-container"><table class="table table-hover"><thead class="table-light"><tr><th>ID</th><th>Username</th><th>Email</th><th>Full Name</th><th>Role</th><th>Phone</th><th>Status</th><th>Last Login</th><th>Registered</th><th>Actions</th></tr></thead>
+        <tbody>${users.map(u=>`<tr><td>${u.id}</td><td><strong>${escapeHtml(u.username)}</strong></td><td>${escapeHtml(u.email)}</td><td>${escapeHtml(u.full_name || '—')}</td><td><span class="badge ${u.role==='admin'?'bg-danger':'bg-primary'}">${escapeHtml(u.role)}</span></td><td>${escapeHtml(u.phone || '—')}</td><td><span class="badge ${u.is_active?'bg-success':'bg-secondary'}">${u.is_active?'Active':'Inactive'}</span></td><td>${formatDateTime(u.last_login)}</td><td>${formatDate(u.created_at)}</td>
+        <td><div class="btn-group btn-group-sm"><button class="btn btn-outline-secondary" onclick="toggleUserStatus(${u.id}, ${!u.is_active})" title="${u.is_active?'Deactivate':'Activate'}"><i class="bi ${u.is_active?'bi-person-down':'bi-person-up'}"></i></button>${u.role!=='admin'?`<button class="btn btn-outline-warning" onclick="toggleUserRole(${u.id}, '${u.role==='user'?'admin':'user'}')" title="Make ${u.role==='user'?'Admin':'User'}"><i class="bi bi-shield"></i></button>`:''}</div></td></tr>`).join('')}</tbody></table></div>`;
+    };
+    
+    const renderInquiries = () => {
+        const a=isAdmin();
+        const i=getInquiries();
+        const stats = { total: i.length, unread: i.filter(i=>i.status==='unread').length, replied: i.filter(i=>i.status==='replied').length };
+        return `<div class="row"><div class="col-lg-7"><h3><i class="bi bi-chat-dots"></i> ${a?'All Inquiries':'My Inquiries'}</h3>${a?`<div class="row g-2 mb-3"><div class="col-4"><div class="stat-card p-2"><small>Total</small><h5>${stats.total}</h5></div></div><div class="col-4"><div class="stat-card p-2"><small>Unread</small><h5 class="text-danger">${stats.unread}</h5></div></div><div class="col-4"><div class="stat-card p-2"><small>Replied</small><h5 class="text-success">${stats.replied}</h5></div></div></div>`:''}
+        ${i.map(inq=>`<div class="card mb-3"><div class="card-body"><div class="d-flex justify-content-between align-items-start"><div><strong>${escapeHtml(inq.customer_name)}</strong> <small class="text-muted">(${escapeHtml(inq.customer_email)})</small></div><span class="badge ${inq.status==='unread'?'bg-danger':(inq.status==='replied'?'bg-success':'bg-secondary')}">${inq.status}</span></div><div class="mt-2"><strong>Subject:</strong> ${escapeHtml(inq.subject)}</div><p class="mt-2 mb-2">${escapeHtml(inq.message)}</p>${inq.admin_response?`<div class="alert alert-light mt-2"><strong><i class="bi bi-reply-fill"></i> Response:</strong><p class="mb-0 mt-1">${escapeHtml(inq.admin_response)}</p></div>`:''}
+        ${a && inq.status!=='replied'?`<form onsubmit="replyToInquiryHandler(${inq.id}, this); return false;" class="mt-3"><textarea name="response" class="form-control mb-2" rows="2" placeholder="Type your response here..." required></textarea><button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-send"></i> Send Response</button></form>`:''}</div></div>`).join('')}
+        ${i.length===0?'<div class="alert alert-info text-center">No inquiries found</div>':''}</div><div class="col-lg-5"><div class="card"><div class="card-header bg-warm text-white"><i class="bi bi-envelope-paper"></i> New Inquiry</div><div class="card-body"><form id="inquiryForm" onsubmit="submitInquiryHandler(this); return false;"><input type="text" name="customer_name" class="form-control mb-2" placeholder="Your Full Name" required><input type="email" name="email" class="form-control mb-2" placeholder="Email Address" required><input type="text" name="subject" class="form-control mb-2" placeholder="Subject" required><textarea name="message" class="form-control mb-2" rows="5" placeholder="Describe your inquiry..." required></textarea><button type="submit" class="btn btn-warm w-100"><i class="bi bi-send"></i> Submit Inquiry</button></form></div></div></div></div>`;
+    };
+    
+    const renderLayout = (content) => {
+        const a=isAdmin();
+        return `<div class="d-flex"><div class="sidebar" id="sidebarMenu"><div class="p-3 pt-4"><h4 class="text-white mb-4"><i class="bi bi-cake2 me-2"></i>${a?'AdminHub':'UserPanel'}</h4><ul class="nav flex-column"><li><a class="nav-link ${currentPage==='dashboard'?'active':''}" href="#" onclick="renderDashboardPage(); return false;"><i class="bi bi-speedometer2"></i> Dashboard</a></li><li><a class="nav-link ${currentPage==='products'?'active':''}" href="#" onclick="renderProductsPage(); return false;"><i class="bi bi-box-seam"></i> Products</a></li><li><a class="nav-link ${currentPage==='cakes'?'active':''}" href="#" onclick="renderCakesPage(); return false;"><i class="bi bi-cake2"></i> Cake Gallery</a></li><li><a class="nav-link ${currentPage==='orders'?'active':''}" href="#" onclick="renderOrdersPage(); return false;"><i class="bi bi-cart3"></i> Orders</a></li><li><a class="nav-link ${currentPage==='transactions'?'active':''}" href="#" onclick="renderTransactionsPage(); return false;"><i class="bi bi-credit-card"></i> Transactions</a></li>${a?`<li><a class="nav-link ${currentPage==='users'?'active':''}" href="#" onclick="renderUsersPage(); return false;"><i class="bi bi-people"></i> Users</a></li>`:''}<li><a class="nav-link ${currentPage==='inquiries'?'active':''}" href="#" onclick="renderInquiriesPage(); return false;"><i class="bi bi-chat-dots"></i> Inquiries</a></li></ul><hr class="text-white-50"><button onclick="switchRole()" class="btn btn-outline-light w-100 mt-2"><i class="bi bi-arrow-repeat"></i> Switch to ${a?'User':'Admin'}</button></div></div><div class="main-content flex-grow-1"><nav class="navbar-custom d-flex justify-content-between align-items-center"><div class="mobile-toggle" id="mobileToggle"><i class="bi bi-list"></i></div><div class="fw-bold">🍰 Lavos Bakery - ${a?'Administrator':'Customer'}</div><div><i class="bi bi-person-circle fs-5"></i></div></nav><div class="container-fluid px-4 py-4"><div id="pageMessage"></div>${content}</div></div></div>`;
+    };
+    
+    // ---------- Page Renderers ----------
+    window.renderDashboardPage = () => { currentPage='dashboard'; document.getElementById('app').innerHTML = renderLayout(renderDashboard()); attachMobileToggle(); };
+    window.renderProductsPage = () => { currentPage='products'; document.getElementById('app').innerHTML = renderLayout(renderProducts()); attachMobileToggle(); };
+    window.renderCakesPage = () => { currentPage='cakes'; document.getElementById('app').innerHTML = renderLayout(renderCakeGallery()); attachMobileToggle(); };
+    window.renderOrdersPage = () => { currentPage='orders'; document.getElementById('app').innerHTML = renderLayout(renderOrders()); attachMobileToggle(); };
+    window.renderTransactionsPage = () => { currentPage='transactions'; document.getElementById('app').innerHTML = renderLayout(renderTransactions()); attachMobileToggle(); };
+    window.renderUsersPage = () => { if(!isAdmin()){ renderDashboardPage(); return; } currentPage='users'; document.getElementById('app').innerHTML = renderLayout(renderUsers()); attachMobileToggle(); };
+    window.renderInquiriesPage = () => { currentPage='inquiries'; document.getElementById('app').innerHTML = renderLayout(renderInquiries()); attachMobileToggle(); };
+    
+    // ---------- Global Handlers (attached to window) ----------
+    window.selectRole = (role) => { currentRole = role; localStorage.setItem(STORAGE_KEYS.CURRENT_ROLE, role); renderDashboardPage(); };
+    window.switchRole = () => { currentRole = isAdmin() ? 'user' : 'admin'; localStorage.setItem(STORAGE_KEYS.CURRENT_ROLE, currentRole); renderDashboardPage(); showMessage(`Switched to ${isAdmin()?'Admin':'User'} mode`,'success'); };
+    
+    window.showAddProductModal = () => new bootstrap.Modal(document.getElementById('addProductModal')).show();
+    window.addProductHandler = () => { const f=document.getElementById('addProductForm'); addProduct({ name: f.querySelector('[name="name"]').value, description: f.querySelector('[name="description"]').value, price: parseFloat(f.querySelector('[name="price"]').value), stock: parseInt(f.querySelector('[name="stock"]').value), image_url: f.querySelector('[name="image_url"]').value, category: f.querySelector('[name="category"]').value }); bootstrap.Modal.getInstance(document.getElementById('addProductModal')).hide(); renderProductsPage(); showMessage('Product added!','success'); };
+    window.showEditProductModal = (id) => { const p=getProducts().find(p=>p.id===id); if(p){ document.getElementById('editProductId').value=p.id; document.getElementById('editProductName').value=p.name; document.getElementById('editProductDesc').value=p.description; document.getElementById('editProductPrice').value=p.price; document.getElementById('editProductStock').value=p.stock; document.getElementById('editProductImage').value=p.image_url; document.getElementById('editProductCategory').value=p.category; new bootstrap.Modal(document.getElementById('editProductModal')).show(); } };
+    window.updateProductHandler = () => { const id=parseInt(document.getElementById('editProductId').value); updateProduct(id,{ name: document.getElementById('editProductName').value, description: document.getElementById('editProductDesc').value, price: parseFloat(document.getElementById('editProductPrice').value), stock: parseInt(document.getElementById('editProductStock').value), image_url: document.getElementById('editProductImage').value, category: document.getElementById('editProductCategory').value }); bootstrap.Modal.getInstance(document.getElementById('editProductModal')).hide(); renderProductsPage(); showMessage('Product updated!','success'); };
+    window.deleteProductHandler = (id) => { if(confirm('Delete this product?')){ deleteProduct(id); renderProductsPage(); showMessage('Product deleted','success'); } };
+    
+    window.showOrderModal = (id,name,price) => { 
+        document.getElementById('orderProductId').value=id; 
+        document.getElementById('orderProductName').value=name; 
+        document.getElementById('orderProductPrice').value=formatCurrency(price); 
+        document.getElementById('orderCustomerName').value=''; 
+        document.getElementById('orderCustomerEmail').value=''; 
+        new bootstrap.Modal(document.getElementById('orderModal')).show(); 
+    };
+    window.createOrderHandler = () => { 
+        const r=createOrder({ 
+            product_id: parseInt(document.getElementById('orderProductId').value), 
+            customer_name: document.getElementById('orderCustomerName').value, 
+            customer_email: document.getElementById('orderCustomerEmail').value, 
+            customer_phone: document.getElementById('orderCustomerPhone').value, 
+            quantity: parseInt(document.getElementById('orderQuantity').value), 
+            payment_method: document.getElementById('orderPaymentMethod').value 
+        }); 
+        if(r.success){ 
+            bootstrap.Modal.getInstance(document.getElementById('orderModal')).hide(); 
+            renderOrdersPage(); 
+            showMessage(`Order #${r.order_number} created! Total: ${formatCurrency(r.total)}`,'success'); 
+        } else showMessage(r.error,'danger'); 
+    };
+    window.updateOrderStatusHandler = (id) => { 
+        const s=document.getElementById(`status_${id}`).value; 
+        updateOrderStatus(id,s); 
+        renderOrdersPage(); 
+        showMessage('Order status updated','success'); 
+    };
+    window.cancelOrderHandler = (id) => { 
+        if(confirm('Cancel this order?')){ 
+            cancelOrder(id); 
+            renderOrdersPage(); 
+            showMessage('Order cancelled and transaction refunded','success'); 
+        } 
+    };
+    window.updateTransactionStatusHandler = (id) => { 
+        const s=document.getElementById(`tx_status_${id}`).value; 
+        updateTransactionStatus(id,s); 
+        renderTransactionsPage(); 
+        showMessage('Transaction status updated','success'); 
+    };
+    window.submitInquiryHandler = (f) => { 
+        submitInquiry({ 
+            customer_name: f.querySelector('[name="customer_name"]').value, 
+            customer_email: f.querySelector('[name="email"]').value, 
+            subject: f.querySelector('[name="subject"]').value, 
+            message: f.querySelector('[name="message"]').value 
+        }); 
+        f.reset(); 
+        renderInquiriesPage(); 
+        showMessage('Inquiry submitted!','success'); 
+    };
+    window.replyToInquiryHandler = (id,f) => { 
+        replyToInquiry(id, f.querySelector('[name="response"]').value); 
+        renderInquiriesPage(); 
+        showMessage('Response sent!','success'); 
+    };
+    window.toggleUserStatus = (userId, isActive) => { updateUserStatus(userId, isActive); renderUsersPage(); showMessage(`User ${isActive?'activated':'deactivated'}!`,'success'); };
+    window.toggleUserRole = (userId, role) => { updateUserRole(userId, role); renderUsersPage(); showMessage(`User role updated to ${role}!`,'success'); };
+    
+    const attachMobileToggle = () => { const t=document.getElementById('mobileToggle'), s=document.getElementById('sidebarMenu'); if(t&&s) t.onclick=()=>s.classList.toggle('show'); };
+    
+    // ---------- Set static button listeners (modals) ----------
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('confirmOrderBtn')?.addEventListener('click', window.createOrderHandler);
+        document.getElementById('confirmAddProductBtn')?.addEventListener('click', window.addProductHandler);
+        document.getElementById('confirmUpdateProductBtn')?.addEventListener('click', window.updateProductHandler);
+    });
+    
+    // ---------- Bootstrap ----------
+    initializeData();
+    if(currentRole) renderDashboardPage();
+    else document.getElementById('app').innerHTML = renderRoleSelection();
+    
+    const backBtn = document.getElementById('backToTopBtn');
+    window.addEventListener('scroll', () => backBtn?.classList.toggle('show', window.scrollY > 300));
+    backBtn?.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+</script>
+</body>
+</html>

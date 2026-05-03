@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lavos Bakery | Transactions Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { font-family: 'Segoe UI', system-ui; }
+        body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        .sidebar { background: linear-gradient(180deg, #2c3e50 0%, #1a252f 100%); min-height: 100vh; transition: 0.3s; position: fixed; width: 280px; z-index: 1000; }
+        .sidebar .nav-link { color: #b9c3e6; border-radius: 12px; margin: 6px 12px; padding: 12px 18px; transition: all 0.3s; cursor: pointer; }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active { background: #d4a373; color: #1a1e2b; transform: translateX(5px); }
+        .main-content { margin-left: 280px; transition: 0.3s; }
+        .navbar-custom { background: white; box-shadow: 0 2px 12px rgba(0,0,0,0.05); padding: 15px 25px; border-radius: 0 0 20px 20px; }
+        .stat-card { background: white; border-radius: 28px; border: none; transition: 0.2s; box-shadow: 0 5px 15px rgba(0,0,0,0.05); padding: 20px; text-align: center; }
+        .stat-card:hover { transform: translateY(-5px); }
+        .table-container { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); overflow-x: auto; }
+        .btn-warm { background: #d4a373; border: none; color: #2c3e50; font-weight: 600; border-radius: 40px; padding: 10px 25px; transition: all 0.3s; }
+        .btn-warm:hover { background: #c4956a; transform: translateY(-2px); }
+        .mobile-toggle { display: none; cursor: pointer; font-size: 1.8rem; }
+        @media (max-width: 768px) { .sidebar { left: -280px; } .sidebar.show { left: 0; } .main-content { margin-left: 0; } .mobile-toggle { display: block; } }
+        .back-to-top { position: fixed; bottom: 30px; right: 30px; width: 45px; height: 45px; background: #d4a373; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; visibility: hidden; transition: 0.3s; z-index: 1000; }
+        .back-to-top.show { opacity: 1; visibility: visible; }
+        canvas { max-height: 300px; }
+    </style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+    const STORAGE_KEYS = { TRANSACTIONS: 'lavos_transactions_data' };
+    let currentPage = 'transactions';
+
+    const initializeData = () => {
+        if (!localStorage.getItem(STORAGE_KEYS.TRANSACTIONS)) {
+            localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify([
+                { id: 1, transaction_id: 'TXN1734567890123', order_id: 'ORD202412150001', amount: 299.99, payment_method: 'Credit Card', status: 'completed', transaction_date: '2024-12-15T10:30:00.000Z' },
+                { id: 2, transaction_id: 'TXN1734567890456', order_id: 'ORD202412160002', amount: 179.98, payment_method: 'PayPal', status: 'completed', transaction_date: '2024-12-16T14:20:00.000Z' },
+                { id: 3, transaction_id: 'TXN1734567890789', order_id: 'ORD202412170003', amount: 55.00, payment_method: 'Bank Transfer', status: 'pending', transaction_date: '2024-12-17T09:15:00.000Z' }
+            ]));
+        }
+    };
+
+    const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : 'N/A';
+    const formatCurrency = (a) => '$' + parseFloat(a).toFixed(2);
+    const getTransactions = () => JSON.parse(localStorage.getItem(STORAGE_KEYS.TRANSACTIONS));
+    const updateTransactionStatus = (txId, status) => { const tx = getTransactions(); const idx = tx.findIndex(t=>t.transaction_id===txId); if(idx!==-1){ tx[idx].status=status; localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(tx)); return true; } return false; };
+    const getStats = () => { const tx = getTransactions(); const completed = tx.filter(t=>t.status==='completed'); const total = completed.reduce((s,t)=>s+t.amount,0); const pending = tx.filter(t=>t.status==='pending').length; const failed = tx.filter(t=>t.status==='failed').length; return { total_count: tx.length, total_amount: total, avg_amount: tx.length>0?total/tx.length:0, completed_count: completed.length, pending_count: pending, failed_count: failed }; };
+
+    const renderTransactions = () => { const tx = getTransactions(); const s = getStats(); return `<div class="row g-4 mb-4"><div class="col-md-3"><div class="stat-card"><i class="bi bi-currency-dollar fs-2 text-success"></i><h3>${formatCurrency(s.total_amount)}</h3><span>Total Revenue</span></div></div><div class="col-md-3"><div class="stat-card"><i class="bi bi-receipt fs-2 text-primary"></i><h3>${s.total_count}</h3><span>Transactions</span></div></div><div class="col-md-3"><div class="stat-card"><i class="bi bi-check-circle fs-2 text-info"></i><h3>${s.completed_count}</h3><span>Completed</span></div></div><div class="col-md-3"><div class="stat-card"><i class="bi bi-bar-chart fs-2 text-warning"></i><h3>${formatCurrency(s.avg_amount)}</h3><span>Average</span></div></div></div><div class="table-container"><table class="table table-hover"><thead><tr><th>Transaction ID</th><th>Order ID</th><th>Amount</th><th>Payment Method</th><th>Status</th><th>Date</th><th>Action</th></tr></thead><tbody>${tx.map(t=>`<tr><td class="fw-bold">${t.transaction_id}</td><td>${t.order_id}</td><td class="text-success fw-bold">${formatCurrency(t.amount)}</td><td><i class="bi ${t.payment_method==='Credit Card'?'bi-credit-card':(t.payment_method==='PayPal'?'bi-paypal':'bi-building')} me-1"></i>${t.payment_method}</td><td><span class="badge ${t.status==='completed'?'bg-success':(t.status==='pending'?'bg-warning':'bg-danger')}">${t.status}</span></td><td>${formatDate(t.transaction_date)}</td><td><select id="status_${t.transaction_id}" class="form-select form-select-sm d-inline w-auto" style="width:100px"><option ${t.status==='pending'?'selected':''}>pending</option><option ${t.status==='completed'?'selected':''}>completed</option><option ${t.status==='failed'?'selected':''}>failed</option><option ${t.status==='refunded'?'selected':''}>refunded</option></select><button class="btn btn-sm btn-primary mt-1" onclick="updateStatus('${t.transaction_id}')">Update</button></td></tr>`).join('')}</tbody></table></div>${renderChart()}`; };
+
+    const renderChart = () => `<div class="row mt-4"><div class="col-md-6"><div class="bg-white rounded-4 p-3"><canvas id="statusChart"></canvas></div></div><div class="col-md-6"><div class="bg-white rounded-4 p-3"><canvas id="revenueChart"></canvas></div></div></div>`;
+
+    const layout = (content) => `<div class="d-flex"><div class="sidebar" id="sidebarMenu"><div class="p-3 pt-4"><h4 class="text-white mb-4"><i class="bi bi-credit-card me-2"></i>TransactHub</h4><ul class="nav flex-column"><li><a class="nav-link active" href="#" onclick="renderTransactionsPage()"><i class="bi bi-credit-card"></i> Transactions</a></li></ul><hr class="text-white-50"></div></div><div class="main-content flex-grow-1"><nav class="navbar-custom d-flex justify-content-between"><div class="mobile-toggle" id="mobileToggle"><i class="bi bi-list"></i></div><div class="fw-bold">💳 Transactions Dashboard</div><div><i class="bi bi-person-circle fs-5"></i></div></nav><div class="container-fluid px-4 py-4"><div id="pageMessage"></div>${content}</div></div></div>`;
+
+    window.renderTransactionsPage = () => { currentPage='transactions'; document.getElementById('app').innerHTML = layout(renderTransactions()); attachMobileToggle(); initCharts(); };
+    window.updateStatus = (txId) => { const s=document.getElementById(`status_${txId}`).value; if(updateTransactionStatus(txId,s)){ showMessage('Transaction status updated!','success'); renderTransactionsPage(); }else showMessage('Update failed','danger'); };
+    const showMessage = (msg,type) => { const d=document.getElementById('pageMessage'); if(d){ d.innerHTML=`<div class="alert alert-${type} alert-dismissible fade show">${msg}<button class="btn-close" data-bs-dismiss="alert"></button></div>`; setTimeout(()=>{const a=d.querySelector('.alert'); if(a)a.remove();},3000); } };
+    const attachMobileToggle = () => { const t=document.getElementById('mobileToggle'), s=document.getElementById('sidebarMenu'); if(t&&s) t.onclick=()=>s.classList.toggle('show'); };
+    const initCharts = () => { const tx = getTransactions(); const completed=tx.filter(t=>t.status==='completed').length; const pending=tx.filter(t=>t.status==='pending').length; const failed=tx.filter(t=>t.status==='failed').length; const refunded=tx.filter(t=>t.status==='refunded').length; const ctx1=document.getElementById('statusChart')?.getContext('2d'); if(ctx1) new Chart(ctx1,{ type:'doughnut', data:{ labels:['Completed','Pending','Failed','Refunded'], datasets:[{ data:[completed,pending,failed,refunded], backgroundColor:['#28a745','#ffc107','#dc3545','#6c757d'] }] }, options:{ responsive:true, plugins:{ legend:{ position:'bottom' } } } }); const monthly={}; tx.forEach(t=>{ const month=new Date(t.transaction_date).toLocaleString('default',{month:'short'}); monthly[month]=(monthly[month]||0)+t.amount; }); const ctx2=document.getElementById('revenueChart')?.getContext('2d'); if(ctx2) new Chart(ctx2,{ type:'line', data:{ labels:Object.keys(monthly), datasets:[{ label:'Monthly Revenue ($)', data:Object.values(monthly), borderColor:'#c49a6c', backgroundColor:'rgba(196,154,108,0.1)', fill:true, tension:0.3 }] }, options:{ responsive:true, plugins:{ legend:{ position:'bottom' } } } }); };
+    initializeData(); renderTransactionsPage();
+    window.onload = () => { const backBtn=document.getElementById('backToTopBtn'); if(backBtn){ window.addEventListener('scroll',()=>backBtn.classList.toggle('show',window.scrollY>300)); backBtn.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'})); } };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</body>
+</html>

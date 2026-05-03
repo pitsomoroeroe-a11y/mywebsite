@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Business – Lavos Bakery</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body { background: #e5ddd5; font-family: 'Segoe UI', sans-serif; padding-bottom: 70px; }
+        .wa-header { background: #075e54; color: white; padding: 12px 0; position: sticky; top: 0; z-index: 100; }
+        .search-bar { background: rgba(255,255,255,0.2); border-radius: 20px; padding: 8px 15px; }
+        .chat-item { display: flex; align-items: center; gap: 15px; padding: 12px; border-bottom: 1px solid #e4e6e8; cursor: pointer; background: white; }
+        .chat-item:hover { background: #f0f2f5; }
+        .chat-avatar { width: 50px; height: 50px; border-radius: 50%; background: #e4e6e8; display: flex; align-items: center; justify-content: center; }
+        .catalog-card { background: white; border-radius: 12px; overflow: hidden; cursor: pointer; margin-bottom: 15px; }
+        .catalog-card img { height: 120px; object-fit: cover; width: 100%; }
+        .btn-success { background: #25D366; border: none; }
+        .toast-msg { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: black; color: white; padding: 8px 16px; border-radius: 30px; z-index: 2000; animation: fadeOut 2s; }
+        @keyframes fadeOut { 0%{opacity:1}70%{opacity:1}100%{opacity:0} }
+    </style>
+</head>
+<body>
+<header class="wa-header">
+    <div class="container d-flex justify-content-between align-items-center">
+        <div><i class="bi bi-whatsapp fs-3 me-2"></i> WhatsApp Business</div>
+        <div class="search-bar flex-grow-1 mx-3"><i class="bi bi-search"></i><input type="text" id="searchInput" placeholder="Search" onkeyup="performSearch()"></div>
+        <i class="bi bi-three-dots-vertical"></i>
+    </div>
+</header>
+<main class="container py-3" id="mainContent"></main>
+<script>
+    const STORAGE = { CHATS: 'wa_chats', PRODUCTS: 'wa_products', ORDERS: 'wa_orders' };
+    function init() {
+        if(!localStorage.getItem(STORAGE.CHATS)) localStorage.setItem(STORAGE.CHATS, JSON.stringify([
+            { id:1, name:'Sarah Johnson', phone:'+1234567890', last_msg:'When will my order arrive?', unread:2, pinned:true },
+            { id:2, name:'Mike Brown', phone:'+1987654321', last_msg:'I want to confirm my order', unread:1 }
+        ]));
+        if(!localStorage.getItem(STORAGE.PRODUCTS)) localStorage.setItem(STORAGE.PRODUCTS, JSON.stringify([
+            { id:1, name:'Royal Wedding Cake', price:299.99, image:'https://images.pexels.com/photos/1721934/pexels-photo-1721934.jpeg?w=200', sku:'WED-001' },
+            { id:2, name:'Rainbow Cake', price:89.99, image:'https://images.pexels.com/photos/291528/pexels-photo-291528.jpeg?w=200' }
+        ]));
+        if(!localStorage.getItem(STORAGE.ORDERS)) localStorage.setItem(STORAGE.ORDERS, JSON.stringify([]));
+    }
+    function showToast(m){ const t=document.createElement('div'); t.className='toast-msg'; t.innerText=m; document.body.appendChild(t); setTimeout(()=>t.remove(),2000); }
+    function escapeHtml(s){ return s.replace(/[&<>]/g, m=> ({'&':'&amp;','<':'&lt;','>':'&gt;'})[m]); }
+    function formatPrice(p){ return '$'+p.toFixed(2); }
+    let currentView='chats';
+    function renderChats(){ let chats=JSON.parse(localStorage.getItem(STORAGE.CHATS)); const q=document.getElementById('searchInput').value.toLowerCase(); if(q) chats=chats.filter(c=>c.name.toLowerCase().includes(q)); let html=`<div class="list-group">`; chats.forEach(c=>{ html+=`<div class="chat-item" onclick="openChat(${c.id})"><div class="chat-avatar"><i class="bi bi-person-circle fs-2"></i></div><div><strong>${escapeHtml(c.name)}</strong><div class="small text-muted">${escapeHtml(c.last_msg.substring(0,40))}</div><div class="small">${c.phone}</div></div>${c.unread?`<span class="badge bg-success ms-auto">${c.unread}</span>`:''}</div>`; }); html+=`</div>`; document.getElementById('mainContent').innerHTML=html; currentView='chats'; }
+    function openChat(id){ const chats=JSON.parse(localStorage.getItem(STORAGE.CHATS)); const chat=chats.find(c=>c.id===id); document.getElementById('mainContent').innerHTML=`<div class="card"><div class="card-header bg-success text-white"><i class="bi bi-arrow-left me-2" style="cursor:pointer" onclick="renderChats()"></i> ${escapeHtml(chat.name)}</div><div class="card-body" style="height:400px; overflow-y:auto;" id="chatMessages"></div><div class="card-footer"><div class="input-group"><input type="text" id="msgInput" class="form-control" placeholder="Type a message..."><button class="btn btn-success" onclick="sendMessage(${id})">Send</button></div></div></div><div class="text-center mt-2"><a href="https://wa.me/${chat.phone.replace(/[^0-9]/g,'')}" target="_blank" class="btn btn-sm btn-outline-success w-100">Open in WhatsApp <i class="bi bi-box-arrow-up-right"></i></a></div>`; }
+    function sendMessage(id){ const msg=document.getElementById('msgInput').value; if(msg){ showToast(`Message sent to chat #${id}: "${msg}"`); document.getElementById('msgInput').value=''; renderChats(); } else showToast('Enter message'); }
+    function renderCatalog(){ const prods=JSON.parse(localStorage.getItem(STORAGE.PRODUCTS)); let html=`<h5>Catalog</h5><div class="row g-2">`; prods.forEach(p=>{ html+=`<div class="col-6"><div class="catalog-card" onclick="orderProduct(${p.id})"><img src="${p.image}"><div class="p-2"><strong>${escapeHtml(p.name)}</strong><div>${formatPrice(p.price)}</div><button class="btn btn-sm btn-success w-100 mt-1" onclick="event.stopPropagation(); orderProduct(${p.id})">Order via WhatsApp</button></div></div></div>`; }); html+=`</div>`; document.getElementById('mainContent').innerHTML=html; currentView='catalog'; }
+    function renderOrders(){ const orders=JSON.parse(localStorage.getItem(STORAGE.ORDERS)); if(orders.length===0){ document.getElementById('mainContent').innerHTML='<div class="text-center py-5"><i class="bi bi-inbox fs-1"></i><h6>No orders yet</h6></div>'; return; } let html=`<h5>Orders</h5><div class="list-group">`; orders.forEach(o=>{ html+=`<div class="list-group-item"><div><strong>#${o.order_number}</strong> - ${o.customer_name}</div><div>${o.product_name} x${o.quantity} = ${formatPrice(o.total)}</div><span class="badge bg-warning">${o.status}</span></div>`; }); html+=`</div>`; document.getElementById('mainContent').innerHTML=html; currentView='orders'; }
+    function orderProduct(pid){ const prod=JSON.parse(localStorage.getItem(STORAGE.PRODUCTS)).find(p=>p.id===pid); if(prod){ const order={ id:Date.now(), order_number:'WA'+Date.now(), customer_name:'Guest', product_name:prod.name, quantity:1, total:prod.price, status:'pending' }; const orders=JSON.parse(localStorage.getItem(STORAGE.ORDERS)); orders.push(order); localStorage.setItem(STORAGE.ORDERS,JSON.stringify(orders)); showToast(`Order placed for ${prod.name}! Total ${formatPrice(prod.price)}`); renderOrders(); } }
+    function performSearch(){ const q=document.getElementById('searchInput').value.toLowerCase(); if(currentView==='chats') renderChats(); else if(currentView==='catalog') renderCatalog(); else renderOrders(); }
+    init(); renderChats();
+    // add footer
+    document.body.insertAdjacentHTML('beforeend',`<footer class="fixed-bottom bg-white border-top"><div class="container"><div class="row text-center py-2"><div class="col-3"><a href="#" class="text-dark text-decoration-none" onclick="renderChats();return false"><i class="bi bi-chat-dots-fill fs-5"></i><div>Chats</div></a></div><div class="col-3"><a href="#" class="text-dark text-decoration-none" onclick="renderCatalog();return false"><i class="bi bi-shop fs-5"></i><div>Catalog</div></a></div><div class="col-3"><a href="#" class="text-dark text-decoration-none" onclick="renderOrders();return false"><i class="bi bi-truck fs-5"></i><div>Orders</div></a></div></div></div></footer>`);
+</script>
+</body>
+</html>
